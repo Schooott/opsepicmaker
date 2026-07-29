@@ -1,0 +1,369 @@
+// Datenschicht: identisches Interface für Supabase (Produktion) und einen
+// lokalen Demo-Modus (localStorage), der aktiv ist, solange in config.ts
+// keine Supabase-Zugangsdaten hinterlegt sind.
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigured } from "@/config"
+import type { Sources, Values } from "./fields"
+
+export type Profile = {
+  id: string
+  email: string
+  display_name: string
+  role: "admin" | "member"
+  approved: boolean
+  created_at?: string
+}
+
+export type EpicData = { values: Values; source: Sources; idea: string }
+
+export type EpicMeta = {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+  created_by: string
+  creator_name: string
+  comment_count: number
+}
+
+export type EpicRecord = EpicMeta & { data: EpicData }
+
+export type CommentRec = {
+  id: string
+  epic_id: string
+  author: string
+  author_name: string
+  body: string
+  created_at: string
+}
+
+export interface Backend {
+  kind: "supabase" | "demo"
+  restoreSession(): Promise<Profile | null>
+  signIn(email: string, password: string): Promise<Profile>
+  signOut(): Promise<void>
+  listEpics(): Promise<EpicMeta[]>
+  getEpic(id: string): Promise<EpicRecord>
+  createEpic(title: string, data: EpicData): Promise<string>
+  updateEpic(id: string, title: string, data: EpicData): Promise<void>
+  deleteEpic(id: string): Promise<void>
+  listComments(epicId: string): Promise<CommentRec[]>
+  addComment(epicId: string, body: string): Promise<void>
+  deleteComment(id: string): Promise<void>
+  listProfiles(): Promise<Profile[]>
+  createUser(name: string, email: string, password: string): Promise<void>
+  updateProfile(id: string, patch: Partial<Pick<Profile, "role" | "approved" | "display_name">>): Promise<void>
+}
+
+/* ------------------------------ Supabase ------------------------------ */
+
+class SupabaseBackend implements Backend {
+  kind = "supabase" as const
+  private sb: SupabaseClient
+  private sbSignup: SupabaseClient
+  private me: Profile | null = null
+
+  constructor() {
+    this.sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    // Zweiter Client ohne Session-Persistenz: Nutzer anlegen (signUp),
+    // ohne die Admin-Session des Hauptclients zu ersetzen.
+    this.sbSignup = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false, storageKey: "sb-signup" },
+    })
+  }
+
+  private async loadProfile(userId: string): Promise<Profile> {
+    const { data, error } = await this.sb.from("profiles").select("*").eq("id", userId).single()
+    if (error) throw new Error(error.message)
+    return data as Profile
+  }
+
+  async restoreSession(): Promise<Profile | null> {
+    const { data } = await this.sb.auth.getSession()
+    if (!data.session) return null
+    this.me = await this.loadProfile(data.session.user.id)
+    return this.me
+  }
+
+  async signIn(email: string, password: string): Promise<Profile> {
+    const { data, error } = await this.sb.auth.signInWithPassword({ email, password })
+    if (error) throw new Error(error.message === "Invalid login credentials" ? "E-Mail oder Passwort ist falsch." : error.message)
+    this.me = await this.loadProfile(data.user.id)
+    if (!this.me.approved) {
+      await this.sb.auth.signOut()
+      throw new Error("Dieses Konto ist noch nicht freigeschaltet. Bitte an eine Admin-Person wenden.")
+    }
+    return this.me
+  }
+
+  async signOut(): Promise<void> {
+    await this.sb.auth.signOut()
+    this.me = null
+  }
+
+  async listEpics(): Promise<EpicMeta[]> {
+    const { data, error } = await this.sb
+      .from("epics")
+      .select("id,title,created_at,updated_at,created_by,creator:profiles!epics_created_by_fkey(display_name),comments(count)")
+      .order("updated_at", { ascending: false })
+    if (error) throw new Error(error.message)
+    type Row = {
+      id: string; title: string; created_at: string; updated_at: string; created_by: string
+      creator: { display_name: string } | null
+      comments: { count: number }[]
+    }
+    return (data as unknown as Row[]).map(r => ({
+      id: r.id, title: r.title, created_at: r.created_at, updated_at: r.updated_at, created_by: r.created_by,
+      creator_name: r.creator?.display_name ?? "?",
+      comment_count: r.comments?.[0]?.count ?? 0,
+    }))
+  }
+
+  async getEpic(id: string): Promise<EpicRecord> {
+    const { data, error } = await this.sb
+      .from("epics")
+      .select("id,title,data,created_at,updated_at,created_by,creator:profiles!epics_created_by_fkey(display_name),comments(count)")
+      .eq("id", id)
+      .single()
+    if (error) throw new Error(error.message)
+    const r = data as unknown as { id: string; title: string; data: EpicData; created_at: string; updated_at: string; created_by: string; creator: { display_name: string } | null; comments: { count: number }[] }
+    return {
+      id: r.id, title: r.title, data: r.data, created_at: r.created_at, updated_at: r.updated_at,
+      created_by: r.created_by, creator_name: r.creator?.display_name ?? "?",
+      comment_count: r.comments?.[0]?.count ?? 0,
+    }
+  }
+
+  async createEpic(title: string, data: EpicData): Promise<string> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const { data: row, error } = await this.sb
+      .from("epics")
+      .insert({ title, data, created_by: this.me.id, updated_by: this.me.id })
+      .select("id")
+      .single()
+    if (error) throw new Error(error.message)
+    return row.id as string
+  }
+
+  async updateEpic(id: string, title: string, data: EpicData): Promise<void> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const { error } = await this.sb
+      .from("epics")
+      .update({ title, data, updated_by: this.me.id, updated_at: new Date().toISOString() })
+      .eq("id", id)
+    if (error) throw new Error(error.message)
+  }
+
+  async deleteEpic(id: string): Promise<void> {
+    const { error } = await this.sb.from("epics").delete().eq("id", id)
+    if (error) throw new Error(error.message)
+  }
+
+  async listComments(epicId: string): Promise<CommentRec[]> {
+    const { data, error } = await this.sb
+      .from("comments")
+      .select("id,epic_id,author,body,created_at,profile:profiles!comments_author_fkey(display_name)")
+      .eq("epic_id", epicId)
+      .order("created_at", { ascending: true })
+    if (error) throw new Error(error.message)
+    type Row = { id: string; epic_id: string; author: string; body: string; created_at: string; profile: { display_name: string } | null }
+    return (data as unknown as Row[]).map(r => ({
+      id: r.id, epic_id: r.epic_id, author: r.author, body: r.body, created_at: r.created_at,
+      author_name: r.profile?.display_name ?? "?",
+    }))
+  }
+
+  async addComment(epicId: string, body: string): Promise<void> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const { error } = await this.sb.from("comments").insert({ epic_id: epicId, author: this.me.id, body })
+    if (error) throw new Error(error.message)
+  }
+
+  async deleteComment(id: string): Promise<void> {
+    const { error } = await this.sb.from("comments").delete().eq("id", id)
+    if (error) throw new Error(error.message)
+  }
+
+  async listProfiles(): Promise<Profile[]> {
+    const { data, error } = await this.sb.from("profiles").select("*").order("created_at", { ascending: true })
+    if (error) throw new Error(error.message)
+    return data as Profile[]
+  }
+
+  async createUser(name: string, email: string, password: string): Promise<void> {
+    const { data, error } = await this.sbSignup.auth.signUp({
+      email, password,
+      options: { data: { display_name: name } },
+    })
+    if (error) throw new Error(error.message)
+    const uid = data.user?.id
+    if (uid) {
+      // Vom Admin angelegte Konten sind direkt freigeschaltet.
+      const { error: e2 } = await this.sb.from("profiles").update({ approved: true, display_name: name }).eq("id", uid)
+      if (e2) throw new Error(e2.message)
+    }
+  }
+
+  async updateProfile(id: string, patch: Partial<Pick<Profile, "role" | "approved" | "display_name">>): Promise<void> {
+    const { error } = await this.sb.from("profiles").update(patch).eq("id", id)
+    if (error) throw new Error(error.message)
+  }
+}
+
+/* ------------------------------ Demo (lokal) ------------------------------ */
+
+const DEMO_KEY = "opsepic.demo.v1"
+export const DEMO_LOGIN = { email: "admin@demo.local", password: "demo" }
+
+type DemoStore = {
+  users: Array<Profile & { password: string }>
+  epics: Array<{ id: string; title: string; data: EpicData; created_by: string; created_at: string; updated_at: string }>
+  comments: CommentRec[]
+  session: string | null
+}
+
+class DemoBackend implements Backend {
+  kind = "demo" as const
+  private me: Profile | null = null
+
+  private read(): DemoStore {
+    const raw = localStorage.getItem(DEMO_KEY)
+    if (raw) return JSON.parse(raw) as DemoStore
+    const store: DemoStore = {
+      users: [{ id: "u-admin", email: DEMO_LOGIN.email, display_name: "Demo Admin", role: "admin", approved: true, password: DEMO_LOGIN.password, created_at: new Date().toISOString() }],
+      epics: [], comments: [], session: null,
+    }
+    localStorage.setItem(DEMO_KEY, JSON.stringify(store))
+    return store
+  }
+
+  private write(store: DemoStore) {
+    localStorage.setItem(DEMO_KEY, JSON.stringify(store))
+  }
+
+  private profileOf(u: Profile & { password: string }): Profile {
+    const p: Profile & { password?: string } = { ...u }
+    delete p.password
+    return p
+  }
+
+  async restoreSession(): Promise<Profile | null> {
+    const store = this.read()
+    const u = store.users.find(x => x.id === store.session)
+    this.me = u ? this.profileOf(u) : null
+    return this.me
+  }
+
+  async signIn(email: string, password: string): Promise<Profile> {
+    const store = this.read()
+    const u = store.users.find(x => x.email.toLowerCase() === email.trim().toLowerCase())
+    if (!u || u.password !== password) throw new Error("E-Mail oder Passwort ist falsch.")
+    if (!u.approved) throw new Error("Dieses Konto ist noch nicht freigeschaltet.")
+    store.session = u.id
+    this.write(store)
+    this.me = this.profileOf(u)
+    return this.me
+  }
+
+  async signOut(): Promise<void> {
+    const store = this.read()
+    store.session = null
+    this.write(store)
+    this.me = null
+  }
+
+  private meta(store: DemoStore, e: DemoStore["epics"][number]): EpicMeta {
+    return {
+      id: e.id, title: e.title, created_at: e.created_at, updated_at: e.updated_at, created_by: e.created_by,
+      creator_name: store.users.find(u => u.id === e.created_by)?.display_name ?? "?",
+      comment_count: store.comments.filter(c => c.epic_id === e.id).length,
+    }
+  }
+
+  async listEpics(): Promise<EpicMeta[]> {
+    const store = this.read()
+    return [...store.epics].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).map(e => this.meta(store, e))
+  }
+
+  async getEpic(id: string): Promise<EpicRecord> {
+    const store = this.read()
+    const e = store.epics.find(x => x.id === id)
+    if (!e) throw new Error("Epic nicht gefunden.")
+    return { ...this.meta(store, e), data: e.data }
+  }
+
+  async createEpic(title: string, data: EpicData): Promise<string> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const store = this.read()
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+    store.epics.push({ id, title, data, created_by: this.me.id, created_at: now, updated_at: now })
+    this.write(store)
+    return id
+  }
+
+  async updateEpic(id: string, title: string, data: EpicData): Promise<void> {
+    const store = this.read()
+    const e = store.epics.find(x => x.id === id)
+    if (!e) throw new Error("Epic nicht gefunden.")
+    e.title = title
+    e.data = data
+    e.updated_at = new Date().toISOString()
+    this.write(store)
+  }
+
+  async deleteEpic(id: string): Promise<void> {
+    const store = this.read()
+    store.epics = store.epics.filter(x => x.id !== id)
+    store.comments = store.comments.filter(c => c.epic_id !== id)
+    this.write(store)
+  }
+
+  async listComments(epicId: string): Promise<CommentRec[]> {
+    const store = this.read()
+    return store.comments.filter(c => c.epic_id === epicId).sort((a, b) => a.created_at.localeCompare(b.created_at))
+  }
+
+  async addComment(epicId: string, body: string): Promise<void> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const store = this.read()
+    store.comments.push({
+      id: crypto.randomUUID(), epic_id: epicId, author: this.me.id,
+      author_name: this.me.display_name, body, created_at: new Date().toISOString(),
+    })
+    this.write(store)
+  }
+
+  async deleteComment(id: string): Promise<void> {
+    const store = this.read()
+    store.comments = store.comments.filter(c => c.id !== id)
+    this.write(store)
+  }
+
+  async listProfiles(): Promise<Profile[]> {
+    return this.read().users.map(u => this.profileOf(u))
+  }
+
+  async createUser(name: string, email: string, password: string): Promise<void> {
+    const store = this.read()
+    if (store.users.some(u => u.email.toLowerCase() === email.trim().toLowerCase())) throw new Error("Diese E-Mail ist bereits registriert.")
+    store.users.push({ id: crypto.randomUUID(), email: email.trim(), display_name: name, role: "member", approved: true, password, created_at: new Date().toISOString() })
+    this.write(store)
+  }
+
+  async updateProfile(id: string, patch: Partial<Pick<Profile, "role" | "approved" | "display_name">>): Promise<void> {
+    const store = this.read()
+    const u = store.users.find(x => x.id === id)
+    if (!u) throw new Error("Nutzer nicht gefunden.")
+    const wouldRemoveAdmin = u.role === "admin" && u.approved && ((patch.role && patch.role !== "admin") || patch.approved === false)
+    if (wouldRemoveAdmin && store.users.filter(x => x.role === "admin" && x.approved).length <= 1) {
+      throw new Error("Der letzte aktive Admin kann nicht entfernt werden.")
+    }
+    Object.assign(u, patch)
+    this.write(store)
+  }
+}
+
+export function createBackend(): Backend {
+  return supabaseConfigured() ? new SupabaseBackend() : new DemoBackend()
+}
