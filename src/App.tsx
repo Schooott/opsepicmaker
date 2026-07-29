@@ -103,7 +103,7 @@ export function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-6">
+      <main className={view.name === "wizard" ? "mx-auto max-w-6xl px-4 py-6" : "mx-auto max-w-4xl px-4 py-6"}>
         {view.name === "list" && (
           <EpicList
             backend={backend}

@@ -52,7 +52,13 @@ export type CommentRec = {
   author: string
   author_name: string
   body: string
+  /** Panel-ID des Templates, zu dem der Kommentar gehört */
+  section: string
+  /** Gesetzt bei Antworten (eine Ebene) */
+  parent_id: string | null
   created_at: string
+  /** Gesetzt, wenn nachträglich bearbeitet */
+  updated_at: string | null
 }
 
 export interface Backend {
@@ -69,7 +75,8 @@ export interface Backend {
   updateEpic(id: string, title: string, data: EpicData): Promise<void>
   deleteEpic(id: string): Promise<void>
   listComments(epicId: string): Promise<CommentRec[]>
-  addComment(epicId: string, body: string): Promise<void>
+  addComment(epicId: string, section: string, body: string, parentId?: string | null): Promise<void>
+  updateComment(id: string, body: string): Promise<void>
   deleteComment(id: string): Promise<void>
   listProfiles(): Promise<Profile[]>
   /** login = Benutzername oder vollständige E-Mail */
@@ -192,20 +199,32 @@ class SupabaseBackend implements Backend {
   async listComments(epicId: string): Promise<CommentRec[]> {
     const { data, error } = await this.sb
       .from("comments")
-      .select("id,epic_id,author,body,created_at,profile:profiles!comments_author_fkey(display_name)")
+      .select("id,epic_id,author,body,section,parent_id,created_at,updated_at,profile:profiles!comments_author_fkey(display_name)")
       .eq("epic_id", epicId)
       .order("created_at", { ascending: true })
     if (error) throw new Error(error.message)
-    type Row = { id: string; epic_id: string; author: string; body: string; created_at: string; profile: { display_name: string } | null }
+    type Row = {
+      id: string; epic_id: string; author: string; body: string; section: string
+      parent_id: string | null; created_at: string; updated_at: string | null
+      profile: { display_name: string } | null
+    }
     return (data as unknown as Row[]).map(r => ({
-      id: r.id, epic_id: r.epic_id, author: r.author, body: r.body, created_at: r.created_at,
+      id: r.id, epic_id: r.epic_id, author: r.author, body: r.body, section: r.section,
+      parent_id: r.parent_id, created_at: r.created_at, updated_at: r.updated_at,
       author_name: r.profile?.display_name ?? "?",
     }))
   }
 
-  async addComment(epicId: string, body: string): Promise<void> {
+  async addComment(epicId: string, section: string, body: string, parentId?: string | null): Promise<void> {
     if (!this.me) throw new Error("Nicht angemeldet.")
-    const { error } = await this.sb.from("comments").insert({ epic_id: epicId, author: this.me.id, body })
+    const { error } = await this.sb.from("comments").insert({
+      epic_id: epicId, author: this.me.id, body, section, parent_id: parentId ?? null,
+    })
+    if (error) throw new Error(error.message)
+  }
+
+  async updateComment(id: string, body: string): Promise<void> {
+    const { error } = await this.sb.from("comments").update({ body, updated_at: new Date().toISOString() }).eq("id", id)
     if (error) throw new Error(error.message)
   }
 
@@ -373,22 +392,36 @@ class DemoBackend implements Backend {
 
   async listComments(epicId: string): Promise<CommentRec[]> {
     const store = this.read()
-    return store.comments.filter(c => c.epic_id === epicId).sort((a, b) => a.created_at.localeCompare(b.created_at))
+    return store.comments
+      .filter(c => c.epic_id === epicId)
+      // Ältere Demo-Datenstände kennen die neuen Felder noch nicht
+      .map(c => ({ ...c, section: c.section ?? "epic", parent_id: c.parent_id ?? null, updated_at: c.updated_at ?? null }))
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
   }
 
-  async addComment(epicId: string, body: string): Promise<void> {
+  async addComment(epicId: string, section: string, body: string, parentId?: string | null): Promise<void> {
     if (!this.me) throw new Error("Nicht angemeldet.")
     const store = this.read()
     store.comments.push({
       id: crypto.randomUUID(), epic_id: epicId, author: this.me.id,
-      author_name: this.me.display_name, body, created_at: new Date().toISOString(),
+      author_name: this.me.display_name, body, section, parent_id: parentId ?? null,
+      created_at: new Date().toISOString(), updated_at: null,
     })
+    this.write(store)
+  }
+
+  async updateComment(id: string, body: string): Promise<void> {
+    const store = this.read()
+    const c = store.comments.find(x => x.id === id)
+    if (!c) throw new Error("Kommentar nicht gefunden.")
+    c.body = body
+    c.updated_at = new Date().toISOString()
     this.write(store)
   }
 
   async deleteComment(id: string): Promise<void> {
     const store = this.read()
-    store.comments = store.comments.filter(c => c.id !== id)
+    store.comments = store.comments.filter(c => c.id !== id && c.parent_id !== id)
     this.write(store)
   }
 

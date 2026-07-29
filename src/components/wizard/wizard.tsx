@@ -3,24 +3,24 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   ArrowLeftIcon, ArrowRightIcon, CircleHelpIcon, ClockIcon, FlagIcon, FlaskConicalIcon, InboxIcon,
-  ListChecksIcon, MapPinIcon, MessagesSquareIcon, PackageIcon, RulerIcon, SaveIcon, SirenIcon,
-  TicketIcon, UsersIcon, type LucideIcon,
+  ListChecksIcon, MapPinIcon, MessageSquareIcon, MessagesSquareIcon, PackageIcon, RulerIcon,
+  SaveIcon, SirenIcon, TicketIcon, UsersIcon, type LucideIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
 import type { AiResult } from "@/lib/ai"
-import type { Backend, EpicRecord, Profile } from "@/lib/backend"
+import type { Backend, CommentRec, EpicRecord, Profile } from "@/lib/backend"
 import {
   FIELDS, PANELS, defaultValues, isEmpty, missingRequired, OP_STATUS, OP_TYPEN, stepOfField,
   type FieldValue, type OpRow, type Sources, type Values,
 } from "@/lib/fields"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldGroup } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CommentsSheet } from "./comments-sheet"
+import { CommentsPanel } from "./comments-panel"
 import { FieldRenderer } from "./field-renderer"
 import { StepIntake } from "./step-intake"
 import { StepExport } from "./step-export"
@@ -56,6 +56,52 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(epic ? new Date(epic.updated_at) : null)
+  const [comments, setComments] = useState<CommentRec[]>([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [openSection, setOpenSection] = useState<string | null>(null)
+
+  const loadComments = useCallback(async (id: string) => {
+    setCommentsLoading(true)
+    try {
+      setComments(await backend.listComments(id))
+    } catch (e) {
+      toast.error("Kommentare laden fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setCommentsLoading(false)
+    }
+  }, [backend])
+
+  useEffect(() => {
+    if (epicId) loadComments(epicId)
+  }, [epicId, loadComments])
+
+  async function addComment(body: string, parentId: string | null) {
+    if (!epicId || !openSection) return
+    try {
+      await backend.addComment(epicId, openSection, body, parentId)
+      await loadComments(epicId)
+    } catch (e) {
+      toast.error("Kommentar senden fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)))
+    }
+  }
+
+  async function updateComment(id: string, body: string) {
+    try {
+      await backend.updateComment(id, body)
+      if (epicId) await loadComments(epicId)
+    } catch (e) {
+      toast.error("Bearbeiten fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)))
+    }
+  }
+
+  async function deleteComment(id: string) {
+    try {
+      await backend.deleteComment(id)
+      if (epicId) await loadComments(epicId)
+    } catch (e) {
+      toast.error("Löschen fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)))
+    }
+  }
 
   const setField = useCallback((key: string, value: FieldValue, src: "ai" | "user" = "user") => {
     setValues(v => ({ ...v, [key]: value }))
@@ -166,6 +212,8 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
       <div className="flex flex-col gap-6">
         {PANELS.filter(p => p.step === n).map(p => {
           const Icon = PANEL_ICONS[p.icon]
+          const count = comments.filter(c => c.section === p.id).length
+          const active = openSection === p.id
           return (
             <Card key={p.id}>
               <CardHeader>
@@ -175,6 +223,18 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
                   {p.title}
                 </CardTitle>
                 {p.resp && <CardDescription>Verantwortung: {p.resp}</CardDescription>}
+                <CardAction>
+                  <Button
+                    variant={active ? "secondary" : "ghost"}
+                    size="sm"
+                    disabled={!epicId}
+                    title={epicId ? `Kommentare zu „${p.title}“` : "Bitte das Epic zuerst speichern"}
+                    onClick={() => setOpenSection(active ? null : p.id)}
+                  >
+                    <MessageSquareIcon data-icon="inline-start" />
+                    {count}
+                  </Button>
+                </CardAction>
               </CardHeader>
               <CardContent>
                 <FieldGroup>
@@ -190,6 +250,8 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
     )
   }
 
+  const openPanel = openSection ? PANELS.find(p => p.id === openSection) : undefined
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -200,21 +262,38 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
         <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{title}</h1>
       </div>
 
-      <Tabs value={String(step)} onValueChange={v => setStep(Number(v))}>
-        <TabsList className="w-full flex-wrap">
-          {STEPS.map(s => (
-            <TabsTrigger key={s.n} value={String(s.n)}>
-              {s.label}
-              {(missingByStep.get(s.n) ?? 0) > 0 && <Badge variant="destructive">{missingByStep.get(s.n)}</Badge>}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      <div className="pb-20">{stepBody(step)}</div>
+      <div className="flex items-start gap-5">
+        <div className="min-w-0 flex-1">
+          <Tabs value={String(step)} onValueChange={v => setStep(Number(v))}>
+            <TabsList className="w-full flex-wrap">
+              {STEPS.map(s => (
+                <TabsTrigger key={s.n} value={String(s.n)}>
+                  {s.label}
+                  {(missingByStep.get(s.n) ?? 0) > 0 && <Badge variant="destructive">{missingByStep.get(s.n)}</Badge>}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <div className="pt-4 pb-20">{stepBody(step)}</div>
+        </div>
+        {openPanel && (
+          <div className="sticky top-16 hidden w-96 shrink-0 md:block">
+            <CommentsPanel
+              panel={openPanel}
+              comments={comments.filter(c => c.section === openPanel.id)}
+              loading={commentsLoading}
+              profile={profile}
+              onClose={() => setOpenSection(null)}
+              onAdd={addComment}
+              onUpdate={updateComment}
+              onDelete={deleteComment}
+            />
+          </div>
+        )}
+      </div>
 
       <div className="fixed inset-x-0 bottom-0 border-t bg-background">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
           <Button variant="outline" disabled={step === 0} onClick={() => setStep(s => Math.max(0, s - 1))}>
             <ArrowLeftIcon data-icon="inline-start" />
             Zurück
@@ -230,7 +309,6 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
                 ? `Gespeichert ${lastSaved.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`
                 : "Noch nicht gespeichert"}
           </p>
-          <CommentsSheet backend={backend} profile={profile} epicId={epicId} epicTitle={title} />
           <Button onClick={save} disabled={saving}>
             {saving ? <Spinner data-icon="inline-start" /> : <SaveIcon data-icon="inline-start" />}
             Speichern

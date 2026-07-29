@@ -122,10 +122,15 @@ create table public.comments (
   epic_id    uuid not null references public.epics(id) on delete cascade,
   author     uuid not null references public.profiles(id),
   body       text not null,
-  created_at timestamptz not null default now()
+  -- Bereichs-Zuordnung (Panel-ID des Templates) und Antworten (1 Ebene)
+  section    text not null default 'epic',
+  parent_id  uuid references public.comments(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
 );
 
 create index comments_epic_idx on public.comments (epic_id, created_at);
+create index comments_epic_section_idx on public.comments (epic_id, section);
 
 alter table public.comments enable row level security;
 
@@ -135,6 +140,11 @@ create policy "comments: team read"
 
 create policy "comments: team insert"
   on public.comments for insert to authenticated
+  with check (public.is_approved() and author = auth.uid());
+
+create policy "comments: own update"
+  on public.comments for update to authenticated
+  using (public.is_approved() and author = auth.uid())
   with check (public.is_approved() and author = auth.uid());
 
 create policy "comments: own or admin delete"
