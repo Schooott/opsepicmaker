@@ -10,12 +10,12 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { Toaster } from "@/components/ui/sonner"
+import { AdminView } from "@/components/admin-view"
 import { EpicList } from "@/components/epic-list"
 import { LoginView } from "@/components/login-view"
-import { UsersView } from "@/components/users-view"
 import { Wizard } from "@/components/wizard/wizard"
 
-type View = { name: "list" } | { name: "users" } | { name: "wizard"; epic: EpicRecord | null }
+type View = { name: "list" } | { name: "admin" } | { name: "wizard"; epic: EpicRecord | null }
 
 export function App() {
   const backend = useMemo(() => createBackend(), [])
@@ -67,7 +67,7 @@ export function App() {
     profile.display_name.split(/\s+/).map(p => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"
 
   return (
-    <div className="min-h-svh bg-muted/30">
+    <div className="min-h-svh bg-muted">
       <header className="sticky top-0 z-10 border-b bg-background">
         <div className="mx-auto flex max-w-4xl items-center gap-4 px-4 py-2.5">
           <button
@@ -82,8 +82,8 @@ export function App() {
               Epics
             </Button>
             {profile.role === "admin" && (
-              <Button variant={view.name === "users" ? "secondary" : "ghost"} size="sm" onClick={() => setView({ name: "users" })}>
-                Nutzer
+              <Button variant={view.name === "admin" ? "secondary" : "ghost"} size="sm" onClick={() => setView({ name: "admin" })}>
+                Admin
               </Button>
             )}
           </nav>
@@ -112,7 +112,7 @@ export function App() {
             onNew={() => setView({ name: "wizard", epic: null })}
           />
         )}
-        {view.name === "users" && <UsersView backend={backend} profile={profile} />}
+        {view.name === "admin" && profile.role === "admin" && <AdminView backend={backend} profile={profile} />}
         {view.name === "wizard" && (
           <Wizard
             key={view.epic?.id ?? "new"}

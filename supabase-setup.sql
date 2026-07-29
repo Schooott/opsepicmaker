@@ -141,6 +141,35 @@ create policy "comments: own or admin delete"
   on public.comments for delete to authenticated
   using (public.is_approved() and (author = auth.uid() or public.is_admin()));
 
+-- ---------- app settings ----------
+-- Zentrale App-Einstellungen (z. B. KI-Modell). Lesen: freigeschaltetes Team,
+-- Schreiben: nur Admins.
+create table public.app_settings (
+  key        text primary key,
+  value      jsonb not null,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.profiles(id)
+);
+
+alter table public.app_settings enable row level security;
+
+create policy "settings: team read"
+  on public.app_settings for select to authenticated
+  using (public.is_approved());
+
+create policy "settings: admin insert"
+  on public.app_settings for insert to authenticated
+  with check (public.is_admin());
+
+create policy "settings: admin update"
+  on public.app_settings for update to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+insert into public.app_settings (key, value)
+values ('ai_model', '"claude-haiku-4-5"'::jsonb)
+on conflict (key) do nothing;
+
 -- ---------- hardening (per Supabase security advisor) ----------
 alter function public.protect_last_admin() set search_path = public;
 

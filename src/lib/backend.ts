@@ -3,7 +3,14 @@
 // keine Supabase-Zugangsdaten hinterlegt sind.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { SUPABASE_ANON_KEY, SUPABASE_URL, USERNAME_EMAIL_DOMAIN, supabaseConfigured } from "@/config"
+import { AI_MODELS } from "./ai"
 import type { Sources, Values } from "./fields"
+
+const DEFAULT_AI_MODEL = AI_MODELS[0].value
+
+function validAiModel(v: unknown): string {
+  return typeof v === "string" && AI_MODELS.some(m => m.value === v) ? v : DEFAULT_AI_MODEL
+}
 
 // Benutzername <-> interne E-Mail (Supabase Auth ist E-Mail-basiert).
 // Eingaben mit "@" werden unverändert als E-Mail behandelt.
@@ -68,6 +75,9 @@ export interface Backend {
   /** login = Benutzername oder vollständige E-Mail */
   createUser(name: string, login: string, password: string): Promise<void>
   updateProfile(id: string, patch: Partial<Pick<Profile, "role" | "approved" | "display_name">>): Promise<void>
+  /** Team-weit konfiguriertes KI-Modell */
+  getAiModel(): Promise<string>
+  setAiModel(model: string): Promise<void>
 }
 
 /* ------------------------------ Supabase ------------------------------ */
@@ -228,6 +238,22 @@ class SupabaseBackend implements Backend {
     const { error } = await this.sb.from("profiles").update(patch).eq("id", id)
     if (error) throw new Error(error.message)
   }
+
+  async getAiModel(): Promise<string> {
+    const { data } = await this.sb.from("app_settings").select("value").eq("key", "ai_model").maybeSingle()
+    return validAiModel(data?.value)
+  }
+
+  async setAiModel(model: string): Promise<void> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const { error } = await this.sb.from("app_settings").upsert({
+      key: "ai_model",
+      value: validAiModel(model),
+      updated_at: new Date().toISOString(),
+      updated_by: this.me.id,
+    })
+    if (error) throw new Error(error.message)
+  }
 }
 
 /* ------------------------------ Demo (lokal) ------------------------------ */
@@ -240,6 +266,7 @@ type DemoStore = {
   epics: Array<{ id: string; title: string; data: EpicData; created_by: string; created_at: string; updated_at: string }>
   comments: CommentRec[]
   session: string | null
+  settings?: Record<string, string>
 }
 
 class DemoBackend implements Backend {
@@ -386,6 +413,16 @@ class DemoBackend implements Backend {
       throw new Error("Der letzte aktive Admin kann nicht entfernt werden.")
     }
     Object.assign(u, patch)
+    this.write(store)
+  }
+
+  async getAiModel(): Promise<string> {
+    return validAiModel(this.read().settings?.ai_model)
+  }
+
+  async setAiModel(model: string): Promise<void> {
+    const store = this.read()
+    store.settings = { ...store.settings, ai_model: validAiModel(model) }
     this.write(store)
   }
 }

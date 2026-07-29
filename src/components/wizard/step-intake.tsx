@@ -2,7 +2,7 @@
 import { useState } from "react"
 import { CircleHelpIcon, LightbulbIcon, MicIcon, SettingsIcon, SparklesIcon, SquareIcon } from "lucide-react"
 
-import { AI_MODELS, aiPrefill, type AiAuth, type AiResult } from "@/lib/ai"
+import { aiPrefill, type AiAuth, type AiResult } from "@/lib/ai"
 import type { Backend } from "@/lib/backend"
 import { useRecorder } from "@/hooks/use-recorder"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -26,7 +26,6 @@ type Props = {
 export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
   const keylessMode = backend.kind === "supabase"
   const [apiKey, setApiKey] = useState(() => localStorage.getItem(LS_APIKEY) ?? "")
-  const [model, setModel] = useState(AI_MODELS[0].value)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [okMessage, setOkMessage] = useState("")
@@ -34,7 +33,6 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
 
   const rec = useRecorder(text => onIdeaChange((idea.trimEnd() + "\n" + text).trim()))
 
-  const modelItems = AI_MODELS.map(m => ({ label: m.label, value: m.value }))
   const deviceItems = [
     { label: "Standard-Mikrofon", value: "" },
     ...rec.devices.map((d, i) => ({ label: d.label || `Mikrofon ${i + 1}`, value: d.deviceId })),
@@ -62,6 +60,7 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
       } else {
         auth = { mode: "direct", apiKey: apiKey.trim() }
       }
+      const model = await backend.getAiModel()
       const result = await aiPrefill(auth, model, idea.trim())
       const filled = onAiResult(result)
       setOkMessage(`${filled} Felder vorbefüllt (als „KI-Vorschlag“ markiert). Bitte in den nächsten Schritten prüfen und anpassen.`)
@@ -81,20 +80,18 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SettingsIcon className="text-muted-foreground" /> KI-Einstellungen
-          </CardTitle>
-          <CardDescription>
-            {keylessMode
-              ? "Der API-Key ist zentral und sicher im Backend hinterlegt – hier ist nichts einzutragen."
-              : "Der API-Key wird ausschließlich lokal in diesem Browser gespeichert und nur direkt an api.anthropic.com gesendet."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup className="gap-4 sm:grid sm:grid-cols-2">
-            {!keylessMode && (
+      {!keylessMode && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <SettingsIcon className="text-muted-foreground" /> KI-Einstellungen
+            </CardTitle>
+            <CardDescription>
+              Der API-Key wird ausschließlich lokal in diesem Browser gespeichert und nur direkt an api.anthropic.com gesendet.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="apiKey">Anthropic API-Key</FieldLabel>
                 <Input
@@ -109,25 +106,10 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
                   }}
                 />
               </Field>
-            )}
-            <Field>
-              <FieldLabel htmlFor="model">Modell</FieldLabel>
-              <Select items={modelItems} value={model} onValueChange={v => setModel(String(v))}>
-                <SelectTrigger id="model" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {modelItems.map(it => (
-                      <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-          </FieldGroup>
-        </CardContent>
-      </Card>
+            </FieldGroup>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

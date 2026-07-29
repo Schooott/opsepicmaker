@@ -35,7 +35,7 @@ export function LoginView({ backend, onLogin }: Props) {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
+    <div className="flex min-h-svh items-center justify-center bg-muted p-4">
       <div className="flex w-full max-w-sm flex-col gap-4">
         <div className="flex items-center justify-center gap-2 text-lg font-semibold">
           <CompassIcon className="text-primary" /> Ops Epic Maker
