@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UX Ops Epic-Wizard</title>
+<script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
 <style>
   :root {
     --blue: #4167c1;
@@ -118,6 +119,13 @@
     position: absolute; left: 0; bottom: 0; width: 1px; height: 1px;
     opacity: 0; pointer-events: none; border: 0; padding: 0;
   }
+  /* Lucide icons */
+  svg.lucide { width: 17px; height: 17px; flex-shrink: 0; vertical-align: -3px; }
+  header h1 svg.lucide { width: 21px; height: 21px; vertical-align: -4px; }
+  .btn-icon svg.lucide, .btn-cal svg.lucide { width: 15px; height: 15px; vertical-align: -2px; }
+  .badge svg.lucide { width: 11px; height: 11px; vertical-align: -1.5px; }
+  .export-check li svg.lucide { width: 15px; height: 15px; }
+  .step-dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
   /* table for offene punkte */
   .op-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .op-table th { text-align: left; padding: 6px 6px; color: var(--gray); font-size: 12px; border-bottom: 2px solid #ebecf0; }
@@ -198,7 +206,7 @@
 <body>
 
 <header>
-  <h1>🧭 UX Ops Epic-Wizard</h1>
+  <h1><i data-lucide="compass"></i> UX Ops Epic-Wizard</h1>
   <div class="sub">Epics für OPS-Initiativen schnell &amp; strukturiert anlegen</div>
 </header>
 
@@ -212,7 +220,7 @@
   <p class="step-desc">Beschreibe die Grundidee der Initiative – per Tastatur, Diktat oder aus einem aufgezeichneten Gespräch. Die KI befüllt danach so viele Felder wie möglich vor.</p>
 
   <div class="panel" style="border-left-color: var(--ai);">
-    <div class="panel-head">⚙️ KI-Einstellungen</div>
+    <div class="panel-head"><span><i data-lucide="settings"></i> KI-Einstellungen</span></div>
     <div class="panel-body">
       <div class="setup-grid">
         <div class="field">
@@ -232,7 +240,7 @@
   </div>
 
   <div class="panel" style="border-left-color: var(--blue);">
-    <div class="panel-head">💡 Grundidee &amp; Kontext</div>
+    <div class="panel-head"><span><i data-lucide="lightbulb"></i> Grundidee &amp; Kontext</span></div>
     <div class="panel-body">
       <div class="field">
         <label class="f-label" for="ideaText">Beschreibung / Notizen / Transkript</label>
@@ -242,11 +250,11 @@
 
       <div class="audio-box">
         <div class="field" style="margin-bottom: 12px;">
-          <label class="f-label" for="micSelect">🎙️ Audioquelle</label>
+          <label class="f-label" for="micSelect"><i data-lucide="mic"></i> Audioquelle</label>
           <select id="micSelect"><option value="">Standard-Mikrofon</option></select>
         </div>
         <div class="rec-row">
-          <button class="btn ghost" id="btnRecord">🎙️ Aufnahme &amp; Diktat starten</button>
+          <button class="btn ghost" id="btnRecord"><i data-lucide="mic"></i> Aufnahme &amp; Diktat starten</button>
           <span class="rec-indicator" id="recIndicator"><span class="dot"></span> Aufnahme läuft … <span id="recTimer">0:00</span></span>
         </div>
         <div id="transcriptView"></div>
@@ -258,50 +266,50 @@
       </div>
 
       <div style="margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap;">
-        <button class="btn ai-btn" id="btnAiFill">✨ Felder mit KI vorbefüllen</button>
-        <button class="btn ghost" id="btnSkip">Ohne KI weiter →</button>
+        <button class="btn ai-btn" id="btnAiFill"><i data-lucide="sparkles"></i> Felder mit KI vorbefüllen</button>
+        <button class="btn ghost" id="btnSkip">Ohne KI weiter <i data-lucide="arrow-right"></i></button>
       </div>
       <div class="ai-status" id="aiStatus"></div>
       <div class="rueckfragen" id="rueckfragenBox">
-        <h3>❓ Die KI empfiehlt, folgende Punkte noch zu klären:</h3>
+        <h3><i data-lucide="circle-help"></i> Die KI empfiehlt, folgende Punkte noch zu klären:</h3>
         <ul id="rueckfragenList"></ul>
       </div>
     </div>
   </div>
 
   <div class="top-actions">
-    <button class="btn ghost" id="btnReset" style="color: var(--danger); border-color: #f0b5a8;">🗑️ Entwurf zurücksetzen</button>
+    <button class="btn ghost" id="btnReset" style="color: var(--danger); border-color: #f0b5a8;"><i data-lucide="trash-2"></i> Entwurf zurücksetzen</button>
   </div>
 </section>
 
 <!-- Steps 1-4 werden dynamisch aus der Feld-Registry gerendert -->
 <section class="step-view" data-step="1">
-  <h2 class="step-title">🔵 Auftrag verstehen</h2>
+  <h2 class="step-title"><span class="step-dot" style="background:#4167c1"></span> Auftrag verstehen</h2>
   <p class="step-desc">Basisdaten, Ausgangslage, Zielgruppen, Zielbild und Erfolgsmessung.</p>
   <div id="step1-panels"></div>
 </section>
 
 <section class="step-view" data-step="2">
-  <h2 class="step-title">🟣 Umsetzung planen</h2>
+  <h2 class="step-title"><span class="step-dot" style="background:#8a6ec6"></span> Umsetzung planen</h2>
   <p class="step-desc">Deliverables, Akzeptanzkriterien, Validierung, Pilot, Rollout und Zeitplan.</p>
   <div id="step2-panels"></div>
 </section>
 
 <section class="step-view" data-step="3">
-  <h2 class="step-title">🟢 Verantwortung klären</h2>
+  <h2 class="step-title"><span class="step-dot" style="background:#36b37e"></span> Verantwortung klären</h2>
   <p class="step-desc">Rollen, Governance und Ownership im Regelbetrieb.</p>
   <div id="step3-panels"></div>
 </section>
 
 <section class="step-view" data-step="4">
-  <h2 class="step-title">⚪🟡 Grundlagen &amp; Unsicherheiten</h2>
+  <h2 class="step-title"><span class="step-dot" style="background:#c1c7d0"></span><span class="step-dot" style="background:#f0c419"></span> Grundlagen &amp; Unsicherheiten</h2>
   <p class="step-desc">Vorarbeiten, Risiken sowie offene Punkte, Annahmen und Abhängigkeiten.</p>
   <div id="step4-panels"></div>
 </section>
 
 <!-- ============ STEP 5: EXPORT ============ -->
 <section class="step-view" data-step="5">
-  <h2 class="step-title">📋 Prüfen &amp; nach Jira kopieren</h2>
+  <h2 class="step-title"><i data-lucide="clipboard-list"></i> Prüfen &amp; nach Jira kopieren</h2>
   <p class="step-desc">Alles kontrollieren, dann die Inhalte in das neue Jira-Epic einfügen.</p>
 
   <div class="export-check">
@@ -310,17 +318,17 @@
   </div>
 
   <div class="copy-block">
-    <h3>1 · Titel (Zusammenfassung) <button class="btn ghost" data-copy="titel">📋 Kopieren</button></h3>
+    <h3>1 · Titel (Zusammenfassung) <button class="btn ghost" data-copy="titel"><i data-lucide="copy"></i> Kopieren</button></h3>
     <div class="single-line" id="out-titel"></div>
   </div>
 
   <div class="copy-block">
-    <h3>2 · Epic Name (Kurzname) <button class="btn ghost" data-copy="epicName">📋 Kopieren</button></h3>
+    <h3>2 · Epic Name (Kurzname) <button class="btn ghost" data-copy="epicName"><i data-lucide="copy"></i> Kopieren</button></h3>
     <div class="single-line" id="out-epicName"></div>
   </div>
 
   <div class="copy-block">
-    <h3>3 · Beschreibung (Jira-Wiki-Markup) <button class="btn primary" data-copy="desc">📋 Beschreibung kopieren</button></h3>
+    <h3>3 · Beschreibung (Jira-Wiki-Markup) <button class="btn primary" data-copy="desc"><i data-lucide="copy"></i> Beschreibung kopieren</button></h3>
     <div class="toggle-row">
       <input type="checkbox" id="toggleLeitfragen" checked>
       <label for="toggleLeitfragen">Leitfragen aus dem Template im Export behalten (Struktur wie Vorlage)</label>
@@ -329,7 +337,7 @@
   </div>
 
   <div class="copy-block">
-    <h3>4 · Akzeptanzkriterien (Checklisten-Feld) <button class="btn ghost" data-copy="ak">📋 Kopieren</button></h3>
+    <h3>4 · Akzeptanzkriterien (Checklisten-Feld) <button class="btn ghost" data-copy="ak"><i data-lucide="copy"></i> Kopieren</button></h3>
     <div class="hint" style="font-size:12.5px; color:var(--gray); font-style:italic; margin-bottom:8px;">Einzeln in das Checklisten-Feld „Akzeptanzkriterien“ übernehmen (Überschrift: Outcome-Akzeptanzkriterien).</div>
     <div class="mono" id="out-ak"></div>
   </div>
@@ -339,9 +347,9 @@
 
 <div class="footer-nav">
   <div class="inner">
-    <button class="btn ghost" id="btnPrev">← Zurück</button>
+    <button class="btn ghost" id="btnPrev"><i data-lucide="arrow-left"></i> Zurück</button>
     <span class="prog" id="progText"></span>
-    <button class="btn primary" id="btnNext">Weiter →</button>
+    <button class="btn primary" id="btnNext">Weiter <i data-lucide="arrow-right"></i></button>
   </div>
 </div>
 
@@ -351,6 +359,11 @@
    UX Ops Epic-Wizard — Single File App
    Template: "Epic für OPS-Initiativen" (Jira Server/Data Center)
    ===================================================================== */
+
+/* Lucide-Icon-Helfer: ic() liefert den Platzhalter, refreshIcons()
+   ersetzt alle Platzhalter durch SVGs (nach jedem dynamischen Rendern). */
+const ic = name => `<i data-lucide="${name}"></i>`;
+function refreshIcons() { if (window.lucide) { try { lucide.createIcons(); } catch (e) {} } }
 
 const LS_KEY = "epicwizard.state.v1";
 const LS_APIKEY = "epicwizard.apikey";
@@ -362,19 +375,19 @@ const OP_STATUS = ["Offen", "In Klärung", "Geklärt"];
    type: text | textarea | select | check | list | optable
    step/panel steuern das Rendering, showIf die Sichtbarkeit. */
 const PANELS = [
-  { id: "basis",   step: 1, color: "var(--blue)",  title: "🎫 Epic-Basisdaten", resp: "" },
-  { id: "init",    step: 1, color: "var(--blue)",  title: "📌 Initiative & Ausgangslage", resp: "Initial durch UX Ops" },
-  { id: "ziel",    step: 1, color: "var(--blue)",  title: "👤 Zielgruppen & Arbeitskontext", resp: "Initial durch UX Ops · Bei Bedarf gemeinsam mit dem Squad konkretisieren" },
-  { id: "okr",     step: 1, color: "var(--blue)",  title: "🏁 Zielbild & OKR-Beitrag", resp: "Initial durch UX Ops" },
-  { id: "erfolg",  step: 1, color: "var(--blue)",  title: "📐 Erfolgsmessung", resp: "Erwartete Wirkung initial durch UX Ops · Messbarkeit gemeinsam konkretisieren" },
-  { id: "deliv",   step: 2, color: "var(--purple)", title: "📦 Ergebnisse & Deliverables", resp: "Initial gemeinsam konkretisieren · Ausarbeitung durch den Squad" },
-  { id: "ak",      step: 2, color: "var(--purple)", title: "✅ Outcome-Akzeptanzkriterien", resp: "Jira-Feld „Akzeptanzkriterien“ (Checkliste)" },
-  { id: "pilot",   step: 2, color: "var(--purple)", title: "🧪 Überprüfung, Pilotierung & Einführung", resp: "Initial durch den Squad · Abstimmung mit Epic Owner und relevanten Stakeholdern" },
-  { id: "zeit",    step: 2, color: "var(--purple)", title: "⏱️ Zeitlicher Rahmen & Meilensteine", resp: "Feste Rahmenbedingungen durch UX Ops · Realistische Planung gemeinsam mit dem Squad" },
-  { id: "team",    step: 3, color: "var(--green)", title: "💬 Team, Rollen & Governance", resp: "Initial durch UX Ops · Umsetzungsteam und operative Rollen gemeinsam konkretisieren" },
-  { id: "input",   step: 4, color: "#b3bac5",      title: "📥 Input & Vorarbeiten", resp: "Initial durch UX Ops · Laufend durch den Squad ergänzen" },
-  { id: "risiko",  step: 4, color: "#e6b800",      title: "🚨 Risiken & Gegenmaßnahmen", resp: "Bekannte Risiken initial durch UX Ops · Laufende Ergänzung durch alle Beteiligten" },
-  { id: "offen",   step: 4, color: "#e6b800",      title: "❓ Offene Punkte, Annahmen & Abhängigkeiten", resp: "Gemeinsame und kontinuierliche Pflege durch Epic Owner und Squad" },
+  { id: "basis",   step: 1, color: "var(--blue)",  icon: "ticket",          title: "Epic-Basisdaten", resp: "" },
+  { id: "init",    step: 1, color: "var(--blue)",  icon: "map-pin",         title: "Initiative & Ausgangslage", resp: "Initial durch UX Ops" },
+  { id: "ziel",    step: 1, color: "var(--blue)",  icon: "users",           title: "Zielgruppen & Arbeitskontext", resp: "Initial durch UX Ops · Bei Bedarf gemeinsam mit dem Squad konkretisieren" },
+  { id: "okr",     step: 1, color: "var(--blue)",  icon: "flag",            title: "Zielbild & OKR-Beitrag", resp: "Initial durch UX Ops" },
+  { id: "erfolg",  step: 1, color: "var(--blue)",  icon: "ruler",           title: "Erfolgsmessung", resp: "Erwartete Wirkung initial durch UX Ops · Messbarkeit gemeinsam konkretisieren" },
+  { id: "deliv",   step: 2, color: "var(--purple)", icon: "package",        title: "Ergebnisse & Deliverables", resp: "Initial gemeinsam konkretisieren · Ausarbeitung durch den Squad" },
+  { id: "ak",      step: 2, color: "var(--purple)", icon: "list-checks",    title: "Outcome-Akzeptanzkriterien", resp: "Jira-Feld „Akzeptanzkriterien“ (Checkliste)" },
+  { id: "pilot",   step: 2, color: "var(--purple)", icon: "flask-conical",  title: "Überprüfung, Pilotierung & Einführung", resp: "Initial durch den Squad · Abstimmung mit Epic Owner und relevanten Stakeholdern" },
+  { id: "zeit",    step: 2, color: "var(--purple)", icon: "clock",          title: "Zeitlicher Rahmen & Meilensteine", resp: "Feste Rahmenbedingungen durch UX Ops · Realistische Planung gemeinsam mit dem Squad" },
+  { id: "team",    step: 3, color: "var(--green)", icon: "messages-square", title: "Team, Rollen & Governance", resp: "Initial durch UX Ops · Umsetzungsteam und operative Rollen gemeinsam konkretisieren" },
+  { id: "input",   step: 4, color: "#b3bac5",      icon: "inbox",           title: "Input & Vorarbeiten", resp: "Initial durch UX Ops · Laufend durch den Squad ergänzen" },
+  { id: "risiko",  step: 4, color: "#e6b800",      icon: "siren",           title: "Risiken & Gegenmaßnahmen", resp: "Bekannte Risiken initial durch UX Ops · Laufende Ergänzung durch alle Beteiligten" },
+  { id: "offen",   step: 4, color: "#e6b800",      icon: "circle-help",     title: "Offene Punkte, Annahmen & Abhängigkeiten", resp: "Gemeinsame und kontinuierliche Pflege durch Epic Owner und Squad" },
 ];
 
 const FIELDS = [
@@ -601,8 +614,8 @@ function fieldBadges(f) {
   let html = "";
   if (f.req) html += `<span class="badge req">Pflicht</span>`;
   const src = S.source[f.key];
-  if (src === "ai") html += `<span class="badge ai">✨ KI-Vorschlag</span>`;
-  if (src === "user") html += `<span class="badge edited">✓ Bearbeitet</span>`;
+  if (src === "ai") html += `<span class="badge ai">${ic("sparkles")} KI-Vorschlag</span>`;
+  if (src === "user") html += `<span class="badge edited">${ic("check")} Bearbeitet</span>`;
   return html;
 }
 
@@ -614,7 +627,7 @@ function renderPanels() {
       const panel = document.createElement("div");
       panel.className = "panel";
       panel.style.borderLeftColor = p.color;
-      panel.innerHTML = `<div class="panel-head"><span>${p.title}</span>${p.resp ? `<span class="resp">Verantwortung: ${p.resp}</span>` : ""}</div>`;
+      panel.innerHTML = `<div class="panel-head"><span>${ic(p.icon)} ${p.title}</span>${p.resp ? `<span class="resp">Verantwortung: ${p.resp}</span>` : ""}</div>`;
       const body = document.createElement("div");
       body.className = "panel-body";
       FIELDS.filter(f => f.panel === p.id).forEach(f => body.appendChild(renderField(f)));
@@ -623,6 +636,7 @@ function renderPanels() {
     });
   }
   updateVisibility();
+  refreshIcons();
 }
 
 function renderField(f) {
@@ -645,7 +659,7 @@ function renderField(f) {
   } else if (f.type === "date") {
     wrap.innerHTML = label + hint + `<div class="date-wrap">
       <input type="text" data-input="${f.key}" placeholder="TT.MM.JJJJ oder Freitext, z. B. Q4 2026">
-      <button type="button" class="btn-cal" title="Datum wählen">📅</button>
+      <button type="button" class="btn-cal" title="Datum wählen">${ic("calendar")}</button>
       <input type="date" class="date-hidden" tabindex="-1" aria-hidden="true">
     </div>`;
     const inp = wrap.querySelector("input[type=text]");
@@ -732,7 +746,7 @@ function renderList(key) {
   arr.forEach((val, i) => {
     const row = document.createElement("div");
     row.className = "list-item";
-    row.innerHTML = `<input type="text" value=""><button class="btn-icon" title="Entfernen" type="button">✕</button>`;
+    row.innerHTML = `<input type="text" value=""><button class="btn-icon" title="Entfernen" type="button">${ic("x")}</button>`;
     const inp = row.querySelector("input");
     inp.value = val;
     inp.addEventListener("input", () => { arr[i] = inp.value; S.source[key] = "user"; save(); refreshMeta(); });
@@ -742,6 +756,7 @@ function renderList(key) {
     host.appendChild(row);
   });
   if (!arr.length) host.innerHTML = `<div class="hint" style="margin-bottom:6px;">Noch keine Einträge.</div>`;
+  refreshIcons();
 }
 
 function renderOpTable(key) {
@@ -768,7 +783,7 @@ function renderOpTable(key) {
       const td = document.createElement("td");
       const w = document.createElement("div");
       w.className = "date-wrap";
-      w.innerHTML = `<input type="text" placeholder="Datum"><button type="button" class="btn-cal" title="Datum wählen">📅</button><input type="date" class="date-hidden" tabindex="-1" aria-hidden="true">`;
+      w.innerHTML = `<input type="text" placeholder="Datum"><button type="button" class="btn-cal" title="Datum wählen">${ic("calendar")}</button><input type="date" class="date-hidden" tabindex="-1" aria-hidden="true">`;
       const inp = w.querySelector("input[type=text]");
       inp.value = row[name] || "";
       inp.addEventListener("input", () => { row[name] = inp.value; S.source[key] = "user"; save(); });
@@ -783,7 +798,7 @@ function renderOpTable(key) {
     tr.appendChild(sel("status", OP_STATUS));
     tr.appendChild(dateCell("faellig"));
     const tdDel = document.createElement("td");
-    const del = document.createElement("button"); del.className = "btn-icon"; del.type = "button"; del.textContent = "✕";
+    const del = document.createElement("button"); del.className = "btn-icon"; del.type = "button"; del.innerHTML = ic("x");
     del.addEventListener("click", () => { arr.splice(i, 1); S.source[key] = "user"; renderOpTable(key); save(); });
     tdDel.appendChild(del);
     tr.appendChild(tdDel);
@@ -792,6 +807,7 @@ function renderOpTable(key) {
   if (!arr.length) {
     tbody.innerHTML = `<tr><td colspan="8" style="color:var(--gray); font-style:italic; padding:10px 6px;">Noch keine Einträge.</td></tr>`;
   }
+  refreshIcons();
 }
 
 function setValue(key, val, source) {
@@ -842,9 +858,10 @@ function gotoStep(n) {
   S.step = Math.max(0, Math.min(5, n));
   document.querySelectorAll(".step-view").forEach(v => v.classList.toggle("active", +v.dataset.step === S.step));
   document.getElementById("btnPrev").disabled = S.step === 0;
-  document.getElementById("btnNext").textContent = S.step === 5 ? "Fertig ✓" : "Weiter →";
+  document.getElementById("btnNext").innerHTML = S.step === 5 ? `Fertig ${ic("check")}` : `Weiter ${ic("arrow-right")}`;
   if (S.step === 5) renderExport();
   renderStepper();
+  refreshIcons();
   save();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -928,8 +945,9 @@ async function startRecording() {
   recTimerIv = setInterval(() => {
     document.getElementById("recTimer").textContent = fmtTime((Date.now() - recStartTs) / 1000);
   }, 500);
-  btnRecord.textContent = "⏹️ Aufnahme beenden";
+  btnRecord.innerHTML = `${ic("square")} Aufnahme beenden`;
   btnRecord.classList.remove("ghost"); btnRecord.classList.add("rec");
+  refreshIcons();
   startRecognition();
 }
 
@@ -937,8 +955,9 @@ function stopRecording() {
   if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
   clearInterval(recTimerIv);
   document.getElementById("recIndicator").classList.remove("on");
-  btnRecord.textContent = "🎙️ Aufnahme & Diktat starten";
+  btnRecord.innerHTML = `${ic("mic")} Aufnahme & Diktat starten`;
   btnRecord.classList.add("ghost"); btnRecord.classList.remove("rec");
+  refreshIcons();
   stopRecognition();
 }
 
@@ -946,7 +965,7 @@ function startRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const view = document.getElementById("transcriptView");
   if (!SR) {
-    view.innerHTML = `<span class="interim">⚠️ Live-Transkription wird von diesem Browser nicht unterstützt (Chrome oder Edge verwenden). Die Aufnahme läuft trotzdem.</span>`;
+    view.innerHTML = `<span class="interim">Hinweis: Live-Transkription wird von diesem Browser nicht unterstützt (Chrome oder Edge verwenden). Die Aufnahme läuft trotzdem.</span>`;
     return;
   }
   recognition = new SR();
@@ -969,7 +988,7 @@ function startRecognition() {
   };
   recognition.onend = () => { if (recognizing) { try { recognition.start(); } catch (e) {} } };
   recognition.onerror = e => {
-    if (e.error === "not-allowed") view.innerHTML = `<span class="interim">⚠️ Mikrofon-Zugriff für die Spracherkennung verweigert.</span>`;
+    if (e.error === "not-allowed") view.innerHTML = `<span class="interim">Hinweis: Mikrofon-Zugriff für die Spracherkennung verweigert.</span>`;
   };
   try { recognition.start(); } catch (e) {}
 }
@@ -1034,7 +1053,7 @@ document.getElementById("btnAiFill").addEventListener("click", async () => {
   const btn = document.getElementById("btnAiFill");
   btn.disabled = true;
   statusEl.className = "ai-status loading";
-  statusEl.textContent = "✨ KI analysiert die Eingabe und befüllt die Felder …";
+  statusEl.textContent = "KI analysiert die Eingabe und befüllt die Felder …";
   document.getElementById("rueckfragenBox").style.display = "none";
 
   const today = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -1070,7 +1089,7 @@ document.getElementById("btnAiFill").addEventListener("click", async () => {
     applyAiResult(result);
     const filled = FIELDS.filter(f => f.type !== "grouplabel" && S.source[f.key] === "ai" && !isEmpty(S.values[f.key])).length;
     statusEl.className = "ai-status ok";
-    statusEl.textContent = `✓ ${filled} Felder vorbefüllt (violett markiert). Bitte in den nächsten Schritten prüfen und anpassen.`;
+    statusEl.textContent = `${filled} Felder vorbefüllt (violett markiert). Bitte in den nächsten Schritten prüfen und anpassen.`;
     if (Array.isArray(result.rueckfragen) && result.rueckfragen.length) {
       const ul = document.getElementById("rueckfragenList");
       ul.innerHTML = "";
@@ -1364,7 +1383,7 @@ function renderExport() {
     const li = document.createElement("li");
     const miss = isEmpty(S.values[f.key]);
     li.className = miss ? "miss" : "ok";
-    li.innerHTML = (miss ? "⚠️ " : "✓ ") + f.label + (miss ? " – fehlt noch" : "");
+    li.innerHTML = (miss ? ic("triangle-alert") : ic("check")) + " " + f.label + (miss ? " – fehlt noch" : "");
     if (miss) li.addEventListener("click", () => {
       const stepN = (PANELS.find(p => p.id === f.panel) || {}).step || 1;
       gotoStep(stepN);
@@ -1380,6 +1399,7 @@ function renderExport() {
   document.getElementById("out-epicName").textContent = v("epicName") || "(Epic Name fehlt)";
   document.getElementById("out-desc").textContent = buildWikiDescription(document.getElementById("toggleLeitfragen").checked);
   document.getElementById("out-ak").textContent = buildAkText();
+  refreshIcons();
 }
 document.getElementById("toggleLeitfragen").addEventListener("change", renderExport);
 
@@ -1393,19 +1413,18 @@ document.querySelectorAll("[data-copy]").forEach(btn => {
       case "desc": text = buildWikiDescription(document.getElementById("toggleLeitfragen").checked); break;
       case "ak": text = buildAkText(); break;
     }
+    const old = btn.innerHTML;
     try {
       await navigator.clipboard.writeText(text);
-      const old = btn.textContent;
-      btn.textContent = "✓ Kopiert!";
-      setTimeout(() => { btn.textContent = old; }, 1600);
     } catch (e) {
       // Fallback
       const ta = document.createElement("textarea");
       ta.value = text; document.body.appendChild(ta); ta.select();
       document.execCommand("copy"); ta.remove();
-      btn.textContent = "✓ Kopiert!";
-      setTimeout(() => { btn.textContent = btn.dataset.copy === "desc" ? "📋 Beschreibung kopieren" : "📋 Kopieren"; }, 1600);
     }
+    btn.innerHTML = `${ic("check")} Kopiert!`;
+    refreshIcons();
+    setTimeout(() => { btn.innerHTML = old; refreshIcons(); }, 1600);
   });
 });
 
