@@ -140,3 +140,16 @@ create policy "comments: team insert"
 create policy "comments: own or admin delete"
   on public.comments for delete to authenticated
   using (public.is_approved() and (author = auth.uid() or public.is_admin()));
+
+-- ---------- hardening (per Supabase security advisor) ----------
+alter function public.protect_last_admin() set search_path = public;
+
+-- handle_new_user fires only as a trigger; nobody needs EXECUTE via the API.
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
+-- is_admin/is_approved are evaluated inside RLS policies with the caller's
+-- privileges, so `authenticated` must keep EXECUTE; `anon` does not need it.
+revoke execute on function public.is_admin() from public, anon;
+revoke execute on function public.is_approved() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+grant execute on function public.is_approved() to authenticated;
