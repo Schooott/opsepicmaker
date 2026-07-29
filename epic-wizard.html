@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UX Ops Epic-Wizard</title>
+<style>
+  :root {
+    --blue: #4167c1;
+    --blue-dark: #2f4d99;
+    --purple: #8a6ec6;
+    --green: #36b37e;
+    --green-light: #5ee198;
+    --yellow: #b8860b;
+    --yellow-light: #fff0b3;
+    --gray: #6b778c;
+    --gray-light: #ececec;
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --text: #172b4d;
+    --danger: #de350b;
+    --ai: #6554c0;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.5;
+  }
+  header {
+    background: linear-gradient(135deg, var(--blue-dark), var(--blue));
+    color: #fff; padding: 18px 28px; position: sticky; top: 0; z-index: 50;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  }
+  header h1 { font-size: 19px; font-weight: 600; }
+  header .sub { font-size: 12.5px; opacity: .85; margin-top: 2px; }
+  /* Stepper */
+  nav.stepper {
+    display: flex; gap: 4px; background: var(--card); padding: 10px 20px;
+    border-bottom: 1px solid #dfe1e6; position: sticky; top: 66px; z-index: 40;
+    overflow-x: auto;
+  }
+  nav.stepper button {
+    border: none; background: transparent; padding: 8px 14px; border-radius: 8px;
+    font-size: 13.5px; cursor: pointer; color: var(--gray); white-space: nowrap;
+    display: flex; align-items: center; gap: 7px; font-weight: 500;
+  }
+  nav.stepper button .num {
+    width: 22px; height: 22px; border-radius: 50%; background: #dfe1e6; color: var(--gray);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+  }
+  nav.stepper button.active { background: #e8edfa; color: var(--blue-dark); }
+  nav.stepper button.active .num { background: var(--blue); color: #fff; }
+  nav.stepper button.done .num { background: var(--green); color: #fff; }
+  nav.stepper button .warn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+  main { max-width: 980px; margin: 0 auto; padding: 26px 20px 120px; }
+  .step-view { display: none; }
+  .step-view.active { display: block; animation: fadein .25s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+  h2.step-title { font-size: 21px; margin-bottom: 4px; }
+  p.step-desc { color: var(--gray); margin-bottom: 22px; font-size: 14px; }
+  /* Panels */
+  .panel {
+    background: var(--card); border: 1.5px solid #dfe1e6; border-left-width: 5px;
+    border-radius: var(--radius); margin-bottom: 20px; overflow: hidden;
+  }
+  .panel > .panel-head {
+    padding: 12px 18px; font-weight: 600; font-size: 15px; background: #fafbfc;
+    border-bottom: 1px solid #ebecf0; display: flex; justify-content: space-between; align-items: center;
+  }
+  .panel > .panel-body { padding: 18px; }
+  .panel .resp { font-size: 12px; color: var(--gray); font-style: italic; font-weight: 400; }
+  /* Fields */
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 4px; }
+  .field label.f-label { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; margin-bottom: 3px; flex-wrap: wrap; }
+  .field .hint { font-size: 12.5px; color: var(--gray); font-style: italic; margin-bottom: 6px; }
+  .field input[type=text], .field textarea, .field select {
+    width: 100%; padding: 9px 11px; border: 1.5px solid #c1c7d0; border-radius: 7px;
+    font-size: 14px; font-family: inherit; background: #fff; color: var(--text);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .field textarea { min-height: 68px; resize: vertical; }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(65,103,193,.15);
+  }
+  .field.src-ai input, .field.src-ai textarea, .field.src-ai select { border-color: var(--ai); background: #f7f5ff; }
+  .field.missing input, .field.missing textarea, .field.missing select { border-color: var(--danger); background: #fff8f6; }
+  .badge {
+    font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; letter-spacing: .3px;
+  }
+  .badge.req { background: #ffebe6; color: var(--danger); }
+  .badge.ai { background: #eae6ff; color: var(--ai); }
+  .badge.edited { background: #e3fcef; color: #006644; }
+  /* list fields */
+  .list-field .list-item { display: flex; gap: 8px; margin-bottom: 8px; }
+  .list-field .list-item input { flex: 1; }
+  .btn-icon {
+    border: 1.5px solid #c1c7d0; background: #fff; border-radius: 7px; width: 36px;
+    cursor: pointer; font-size: 15px; color: var(--gray); flex-shrink: 0;
+  }
+  .btn-icon:hover { background: #ffebe6; color: var(--danger); border-color: var(--danger); }
+  .btn-add {
+    border: 1.5px dashed #c1c7d0; background: transparent; border-radius: 7px;
+    padding: 7px 14px; cursor: pointer; font-size: 13px; color: var(--gray); font-weight: 500;
+  }
+  .btn-add:hover { border-color: var(--blue); color: var(--blue); }
+  /* table for offene punkte */
+  .op-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .op-table th { text-align: left; padding: 6px 6px; color: var(--gray); font-size: 12px; border-bottom: 2px solid #ebecf0; }
+  .op-table td { padding: 5px 4px; vertical-align: top; }
+  .op-table input, .op-table select {
+    width: 100%; padding: 6px 8px; border: 1.5px solid #c1c7d0; border-radius: 6px; font-size: 12.5px; font-family: inherit;
+  }
+  .op-wrap { overflow-x: auto; }
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; border: none; border-radius: 8px;
+    padding: 11px 20px; font-size: 14.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+    transition: filter .15s, transform .05s;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--blue); color: #fff; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.ai-btn { background: var(--ai); color: #fff; }
+  .btn.ghost { background: #fff; color: var(--text); border: 1.5px solid #c1c7d0; }
+  .btn.ghost:hover { border-color: var(--blue); color: var(--blue); }
+  .btn.rec { background: var(--danger); color: #fff; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .footer-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; background: var(--card);
+    border-top: 1px solid #dfe1e6; padding: 12px 0; z-index: 45;
+  }
+  .footer-nav .inner { max-width: 980px; margin: 0 auto; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; }
+  .footer-nav .prog { font-size: 12.5px; color: var(--gray); }
+  /* Setup step specifics */
+  .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .setup-grid { grid-template-columns: 1fr; } }
+  .audio-box { border: 1.5px dashed #c1c7d0; border-radius: var(--radius); padding: 16px; margin-top: 6px; background: #fafbfc; }
+  .audio-box .rec-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .rec-indicator { display: none; align-items: center; gap: 7px; color: var(--danger); font-weight: 600; font-size: 13.5px; }
+  .rec-indicator.on { display: inline-flex; }
+  .rec-indicator .dot { width: 10px; height: 10px; background: var(--danger); border-radius: 50%; animation: pulse 1.1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1;} 50% { opacity: .25;} }
+  .note { font-size: 12.5px; color: var(--gray); background: #f0f4ff; border-left: 3px solid var(--blue); padding: 9px 12px; border-radius: 0 7px 7px 0; margin-top: 10px; }
+  .interim { color: var(--gray); font-style: italic; }
+  #transcriptView { min-height: 40px; font-size: 13.5px; padding: 8px 4px; }
+  .ai-status { display: none; margin-top: 14px; padding: 13px 16px; border-radius: 8px; font-size: 14px; }
+  .ai-status.loading { display: block; background: #eae6ff; color: var(--ai); }
+  .ai-status.error { display: block; background: #ffebe6; color: var(--danger); white-space: pre-wrap; }
+  .ai-status.ok { display: block; background: #e3fcef; color: #006644; }
+  .rueckfragen { display: none; margin-top: 16px; background: #fffae6; border: 1.5px solid #ffe380; border-radius: var(--radius); padding: 16px; }
+  .rueckfragen h3 { font-size: 14.5px; margin-bottom: 8px; }
+  .rueckfragen ul { padding-left: 20px; font-size: 13.5px; }
+  .rueckfragen ul li { margin-bottom: 4px; }
+  /* Export */
+  .export-check { background: var(--card); border: 1.5px solid #dfe1e6; border-radius: var(--radius); padding: 18px; margin-bottom: 20px; }
+  .export-check ul { list-style: none; margin-top: 10px; }
+  .export-check li { padding: 4px 0; font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
+  .export-check li.miss { color: var(--danger); cursor: pointer; }
+  .export-check li.miss:hover { text-decoration: underline; }
+  .export-check li.ok { color: #006644; }
+  .copy-grid { display: grid; grid-template-columns: 1fr auto; gap: 10px 14px; align-items: center; margin-bottom: 8px; }
+  .copy-block { background: var(--card); border: 1.5px solid #dfe1e6; border-radius: var(--radius); padding: 18px; margin-bottom: 20px; }
+  .copy-block h3 { font-size: 15.5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .copy-block .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+    background: #f4f5f7; border: 1px solid #ebecf0; border-radius: 7px; padding: 12px;
+    max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  .copy-block .single-line { font-size: 14px; background: #f4f5f7; border-radius: 7px; padding: 10px 12px; flex: 1; margin-right: 10px; word-break: break-word; }
+  .toggle-row { display: flex; align-items: center; gap: 9px; font-size: 13.5px; margin-bottom: 14px; }
+  .toggle-row input { width: 16px; height: 16px; accent-color: var(--blue); }
+  .check-row { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; margin-bottom: 10px; cursor: pointer; }
+  .check-row input { width: 16px; height: 16px; accent-color: var(--blue); }
+  .group-label { font-weight: 700; font-size: 14px; margin: 20px 0 4px; }
+  .group-hint { font-size: 12.5px; color: var(--gray); font-style: italic; margin-bottom: 12px; }
+  .hidden { display: none !important; }
+  .flash { animation: flash-bg 1.2s ease; }
+  @keyframes flash-bg { 0% { background: #fffae6; } 100% { background: transparent; } }
+  audio { margin-top: 10px; width: 100%; height: 36px; }
+  .top-actions { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧭 UX Ops Epic-Wizard</h1>
+  <div class="sub">Epics für OPS-Initiativen schnell &amp; strukturiert anlegen · Template UXPHX-880 · R+V UX KH</div>
+</header>
+
+<nav class="stepper" id="stepper"></nav>
+
+<main>
+
+<!-- ============ STEP 0: EINGABE ============ -->
+<section class="step-view" data-step="0">
+  <h2 class="step-title">Worum geht es?</h2>
+  <p class="step-desc">Beschreibe die Grundidee der Initiative – per Tastatur, Diktat oder aus einem aufgezeichneten Gespräch. Die KI befüllt danach so viele Felder wie möglich vor.</p>
+
+  <div class="panel" style="border-left-color: var(--ai);">
+    <div class="panel-head">⚙️ KI-Einstellungen</div>
+    <div class="panel-body">
+      <div class="setup-grid">
+        <div class="field">
+          <label class="f-label" for="apiKey">Anthropic API-Key</label>
+          <input type="text" id="apiKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <label class="f-label" for="modelSelect">Modell</label>
+          <select id="modelSelect">
+            <option value="claude-haiku-4-5" selected>Claude Haiku 4.5 – günstig &amp; schnell (empfohlen)</option>
+            <option value="claude-sonnet-5">Claude Sonnet 5 – höhere Qualität, teurer</option>
+          </select>
+        </div>
+      </div>
+      <div class="note">Der API-Key wird ausschließlich lokal in diesem Browser gespeichert (localStorage) und nur direkt an api.anthropic.com gesendet.</div>
+    </div>
+  </div>
+
+  <div class="panel" style="border-left-color: var(--blue);">
+    <div class="panel-head">💡 Grundidee &amp; Kontext</div>
+    <div class="panel-body">
+      <div class="field">
+        <label class="f-label" for="ideaText">Beschreibung / Notizen / Transkript</label>
+        <div class="hint">Alles, was du zur Initiative weißt: Problem, Ziel, Beteiligte, Termine … Diktate und Aufnahmen werden hier automatisch angehängt.</div>
+        <textarea id="ideaText" style="min-height: 150px;" placeholder="z. B.: Wir wollen ein zentrales Research-Repository aufbauen, weil Erkenntnisse aus Interviews aktuell in einzelnen Teams verloren gehen …"></textarea>
+      </div>
+
+      <div class="audio-box">
+        <div class="field" style="margin-bottom: 12px;">
+          <label class="f-label" for="micSelect">🎙️ Audioquelle</label>
+          <select id="micSelect"><option value="">Standard-Mikrofon</option></select>
+        </div>
+        <div class="rec-row">
+          <button class="btn ghost" id="btnRecord">🎙️ Aufnahme &amp; Diktat starten</button>
+          <span class="rec-indicator" id="recIndicator"><span class="dot"></span> Aufnahme läuft … <span id="recTimer">0:00</span></span>
+        </div>
+        <div id="transcriptView"></div>
+        <audio id="audioPlayback" controls class="hidden"></audio>
+        <div class="note">
+          <b>Diktat:</b> nutzt die Browser-Spracherkennung (Chrome/Edge, Deutsch) – sie hört immer auf das <b>System-Standardmikrofon</b>.<br>
+          <b>Teams-Call aufzeichnen:</b> Route das Call-Audio auf ein virtuelles Loopback-Gerät (macOS: z. B. <i>BlackHole</i>) und setze dieses als Standard-Eingang – dann wird der Call live transkribiert. Die Aufnahme der hier gewählten Quelle wird zusätzlich gespeichert und kann unten angehört werden. Bitte Einverständnis der Teilnehmenden einholen.
+        </div>
+      </div>
+
+      <div style="margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn ai-btn" id="btnAiFill">✨ Felder mit KI vorbefüllen</button>
+        <button class="btn ghost" id="btnSkip">Ohne KI weiter →</button>
+      </div>
+      <div class="ai-status" id="aiStatus"></div>
+      <div class="rueckfragen" id="rueckfragenBox">
+        <h3>❓ Die KI empfiehlt, folgende Punkte noch zu klären:</h3>
+        <ul id="rueckfragenList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="top-actions">
+    <button class="btn ghost" id="btnReset" style="color: var(--danger); border-color: #f0b5a8;">🗑️ Entwurf zurücksetzen</button>
+  </div>
+</section>
+
+<!-- Steps 1-4 werden dynamisch aus der Feld-Registry gerendert -->
+<section class="step-view" data-step="1">
+  <h2 class="step-title">🔵 Auftrag verstehen</h2>
+  <p class="step-desc">Basisdaten, Ausgangslage, Zielgruppen, Zielbild und Erfolgsmessung.</p>
+  <div id="step1-panels"></div>
+</section>
+
+<section class="step-view" data-step="2">
+  <h2 class="step-title">🟣 Umsetzung planen</h2>
+  <p class="step-desc">Deliverables, Akzeptanzkriterien, Validierung, Pilot, Rollout und Zeitplan.</p>
+  <div id="step2-panels"></div>
+</section>
+
+<section class="step-view" data-step="3">
+  <h2 class="step-title">🟢 Verantwortung klären</h2>
+  <p class="step-desc">Rollen, Governance und Ownership im Regelbetrieb.</p>
+  <div id="step3-panels"></div>
+</section>
+
+<section class="step-view" data-step="4">
+  <h2 class="step-title">⚪🟡 Grundlagen &amp; Unsicherheiten</h2>
+  <p class="step-desc">Vorarbeiten, Risiken sowie offene Punkte, Annahmen und Abhängigkeiten.</p>
+  <div id="step4-panels"></div>
+</section>
+
+<!-- ============ STEP 5: EXPORT ============ -->
+<section class="step-view" data-step="5">
+  <h2 class="step-title">📋 Prüfen &amp; nach Jira kopieren</h2>
+  <p class="step-desc">Alles kontrollieren, dann die Inhalte in das neue Jira-Epic (Vorlage UXPHX-880) einfügen.</p>
+
+  <div class="export-check">
+    <b>Vollständigkeit wichtiger Felder</b>
+    <ul id="checkList"></ul>
+  </div>
+
+  <div class="copy-block">
+    <h3>1 · Titel (Zusammenfassung) <button class="btn ghost" data-copy="titel">📋 Kopieren</button></h3>
+    <div class="single-line" id="out-titel"></div>
+  </div>
+
+  <div class="copy-block">
+    <h3>2 · Epic Name (Kurzname) <button class="btn ghost" data-copy="epicName">📋 Kopieren</button></h3>
+    <div class="single-line" id="out-epicName"></div>
+  </div>
+
+  <div class="copy-block">
+    <h3>3 · Beschreibung (Jira-Wiki-Markup) <button class="btn primary" data-copy="desc">📋 Beschreibung kopieren</button></h3>
+    <div class="toggle-row">
+      <input type="checkbox" id="toggleLeitfragen" checked>
+      <label for="toggleLeitfragen">Leitfragen aus dem Template im Export behalten (Struktur wie Vorlage)</label>
+    </div>
+    <div class="mono" id="out-desc"></div>
+  </div>
+
+  <div class="copy-block">
+    <h3>4 · Akzeptanzkriterien (Checklisten-Feld) <button class="btn ghost" data-copy="ak">📋 Kopieren</button></h3>
+    <div class="hint" style="font-size:12.5px; color:var(--gray); font-style:italic; margin-bottom:8px;">Einzeln in das Checklisten-Feld „Akzeptanzkriterien“ übernehmen (Überschrift: Outcome-Akzeptanzkriterien).</div>
+    <div class="mono" id="out-ak"></div>
+  </div>
+</section>
+
+</main>
+
+<div class="footer-nav">
+  <div class="inner">
+    <button class="btn ghost" id="btnPrev">← Zurück</button>
+    <span class="prog" id="progText"></span>
+    <button class="btn primary" id="btnNext">Weiter →</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   UX Ops Epic-Wizard — Single File App
+   Template: UXPHX-880 "Epic für OPS-Initiativen" (Jira DC, jira.ruv.de)
+   ===================================================================== */
+
+const LS_KEY = "epicwizard.state.v1";
+const LS_APIKEY = "epicwizard.apikey";
+const BEREICHE = ["Research Ops", "Design Ops", "Governance", "Tooling", "Enablement", "Sonstiges"];
+const OP_TYPEN = ["Offener Punkt", "Annahme", "Abhängigkeit", "Entscheidung"];
+const OP_STATUS = ["Offen", "In Klärung", "Geklärt"];
+
+/* ---------------- Feld-Registry ----------------
+   type: text | textarea | select | check | list | optable
+   step/panel steuern das Rendering, showIf die Sichtbarkeit. */
+const PANELS = [
+  { id: "basis",   step: 1, color: "var(--blue)",  title: "🎫 Epic-Basisdaten", resp: "" },
+  { id: "init",    step: 1, color: "var(--blue)",  title: "📌 Initiative & Ausgangslage", resp: "Initial durch UX Ops" },
+  { id: "ziel",    step: 1, color: "var(--blue)",  title: "👤 Zielgruppen & Arbeitskontext", resp: "Initial durch UX Ops · Bei Bedarf gemeinsam mit dem Squad konkretisieren" },
+  { id: "okr",     step: 1, color: "var(--blue)",  title: "🏁 Zielbild & OKR-Beitrag", resp: "Initial durch UX Ops" },
+  { id: "erfolg",  step: 1, color: "var(--blue)",  title: "📐 Erfolgsmessung", resp: "Erwartete Wirkung initial durch UX Ops · Messbarkeit gemeinsam konkretisieren" },
+  { id: "deliv",   step: 2, color: "var(--purple)", title: "📦 Ergebnisse & Deliverables", resp: "Initial gemeinsam konkretisieren · Ausarbeitung durch den Squad" },
+  { id: "ak",      step: 2, color: "var(--purple)", title: "✅ Outcome-Akzeptanzkriterien", resp: "Jira-Feld „Akzeptanzkriterien“ (Checkliste)" },
+  { id: "pilot",   step: 2, color: "var(--purple)", title: "🧪 Überprüfung, Pilotierung & Einführung", resp: "Initial durch den Squad · Abstimmung mit Epic Owner und relevanten Stakeholdern" },
+  { id: "zeit",    step: 2, color: "var(--purple)", title: "⏱️ Zeitlicher Rahmen & Meilensteine", resp: "Feste Rahmenbedingungen durch UX Ops · Realistische Planung gemeinsam mit dem Squad" },
+  { id: "team",    step: 3, color: "var(--green)", title: "💬 Team, Rollen & Governance", resp: "Initial durch UX Ops · Umsetzungsteam und operative Rollen gemeinsam konkretisieren" },
+  { id: "input",   step: 4, color: "#b3bac5",      title: "📥 Input & Vorarbeiten", resp: "Initial durch UX Ops · Laufend durch den Squad ergänzen" },
+  { id: "risiko",  step: 4, color: "#e6b800",      title: "🚨 Risiken & Gegenmaßnahmen", resp: "Bekannte Risiken initial durch UX Ops · Laufende Ergänzung durch alle Beteiligten" },
+  { id: "offen",   step: 4, color: "#e6b800",      title: "❓ Offene Punkte, Annahmen & Abhängigkeiten", resp: "Gemeinsame und kontinuierliche Pflege durch Epic Owner und Squad" },
+];
+
+const FIELDS = [
+  // --- Basisdaten
+  { key: "titel", panel: "basis", type: "text", req: true, label: "Titel (Zusammenfassung)",
+    hint: "Aussagekräftiger Epic-Titel für Jira.", ai: "Prägnanter Epic-Titel (max. 90 Zeichen)." },
+  { key: "epicName", panel: "basis", type: "text", req: true, label: "Epic Name (Kurzname)",
+    hint: "Kurzer Name für Board-Labels, 2–4 Worte.", ai: "Sehr kurzer Epic-Name (2–4 Worte)." },
+  // --- Initiative & Ausgangslage
+  { key: "initiativeName", panel: "init", type: "text", req: true, label: "Initiative",
+    hint: "Leitfrage: Wie heißt die UX-Ops-Initiative?", ai: "Name der Initiative." },
+  { key: "initiativeBereich", panel: "init", type: "select", options: BEREICHE, req: true, label: "Bereich",
+    hint: "Zuordnung: Research Ops, Design Ops, Governance, Tooling oder Enablement.", ai: "Einer der Werte: " + BEREICHE.join(", ") + "." },
+  { key: "ausgangslage", panel: "init", type: "textarea", req: true, label: "Ausgangslage und Problem",
+    hint: "Leitfrage: Welches konkrete Problem bzw. welche Ineffizienz besteht heute, woran zeigt sich dies und warum sollte das Thema jetzt bearbeitet werden?",
+    ai: "Problem, woran es sich zeigt, warum jetzt. Stichpunkte, eine Aussage pro Zeile." },
+  // --- Zielgruppen
+  { key: "zielgruppePrimaer", panel: "ziel", type: "textarea", req: true, label: "Primäre Zielgruppe",
+    hint: "Leitfrage: Wer soll die neue Lösung, den Prozess oder den Service später hauptsächlich nutzen?",
+    ai: "Primäre Nutzergruppe(n)." },
+  { key: "zielgruppeWeitere", panel: "ziel", type: "textarea", label: "Weitere betroffene Gruppen",
+    hint: "Leitfrage: Wer ist darüber hinaus betroffen oder muss mitwirken, entscheiden, freigeben bzw. die Veränderung unterstützen?",
+    ai: "Weitere betroffene oder mitwirkende Gruppen." },
+  { key: "arbeitskontext", panel: "ziel", type: "textarea", label: "Arbeitskontext",
+    hint: "Leitfrage: In welcher Situation bzw. in welchem Prozess tritt das Problem auf? Welche heutigen Arbeitsweisen, Tools oder Schnittstellen sind betroffen?",
+    ai: "Situation/Prozess, betroffene Arbeitsweisen, Tools, Schnittstellen, Hürden." },
+  // --- Zielbild & OKR
+  { key: "ziel", panel: "okr", type: "textarea", req: true, label: "Ziel und gewünschte Veränderung",
+    hint: "Leitfrage: Was soll nach Abschluss konkret besser oder anders sein? Welche neue Fähigkeit, Arbeitsweise oder Qualität soll etabliert sein?",
+    ai: "Zielbild: was ist nach Abschluss besser/anders." },
+  { key: "nichtZiele", panel: "okr", type: "textarea", label: "Nicht-Ziele",
+    hint: "Leitfrage: Welche möglicherweise erwarteten Wirkungen oder Ergebnisse verfolgt die Initiative ausdrücklich nicht?",
+    ai: "Explizite Nicht-Ziele." },
+  { key: "scope", panel: "okr", type: "textarea", label: "Scope",
+    hint: "Leitfrage: Welche Themen, Prozesse, Zielgruppen, Organisationseinheiten oder Bestandteile gehören zum Auftrag?",
+    ai: "Was gehört zum Auftrag." },
+  { key: "outOfScope", panel: "okr", type: "textarea", label: "Out of Scope",
+    hint: "Leitfrage: Welche angrenzenden Themen oder Bestandteile werden ausdrücklich nicht bearbeitet?",
+    ai: "Was ausdrücklich nicht bearbeitet wird." },
+  { key: "okrObjective", panel: "okr", type: "text", label: "OKR – Objective",
+    hint: "Formulierung oder Link zum unterstützten Objective.", ai: "Unterstütztes Objective (nur wenn genannt)." },
+  { key: "okrKeyResult", panel: "okr", type: "text", label: "OKR – Key Result",
+    hint: "Formulierung oder Link zum unterstützten Key Result.", ai: "Unterstütztes Key Result (nur wenn genannt)." },
+  { key: "okrBeitrag", panel: "okr", type: "textarea", label: "OKR – Erwarteter Beitrag",
+    hint: "Welchen konkreten Beitrag soll die Initiative zum OKR leisten?", ai: "Erwarteter Beitrag zum OKR." },
+  // --- Erfolgsmessung
+  { key: "ausgangswerte", panel: "erfolg", type: "textarea", label: "Ausgangssituation / Ausgangswerte",
+    hint: "Leitfrage: Wie stellt sich die Situation heute dar? Welche Basisdaten liegen bereits vor?",
+    ai: "Heutige Situation und vorhandene Basisdaten." },
+  { key: "basisdatenFehlen", panel: "erfolg", type: "check", label: "Basisdaten liegen noch nicht vor (Erhebung planen)",
+    ai: "true, wenn Basisdaten erst noch erhoben werden müssen." },
+  { key: "erhebungMethode", panel: "erfolg", type: "text", label: "Geplante Erhebung (Methode)", showIf: v => v.basisdatenFehlen,
+    hint: "Wie werden die fehlenden Basisdaten erhoben?", ai: "Methode der geplanten Baseline-Erhebung." },
+  { key: "erhebungVerantwortlich", panel: "erfolg", type: "text", label: "Erhebung – Verantwortlich", showIf: v => v.basisdatenFehlen,
+    ai: "Verantwortliche Person/Rolle für die Erhebung." },
+  { key: "erhebungBis", panel: "erfolg", type: "text", label: "Erhebung bis (Datum)", showIf: v => v.basisdatenFehlen,
+    ai: "Zieldatum der Erhebung (nur wenn genannt)." },
+  { key: "ekIntro", panel: "erfolg", type: "grouplabel", label: "Erfolgskriterien",
+    hint: "Leitfrage: An welchen konkreten Veränderungen erkennen wir den Erfolg? Nur relevante Dimensionen ausfüllen – möglichst mit Kennzahl, Zielwert und Messzeitpunkt." },
+  { key: "ek_nutzung", panel: "erfolg", type: "textarea", label: "Nutzung und Akzeptanz",
+    hint: "Wer nutzt die Lösung wie häufig und in welchem Umfang?", ai: "Erfolgskriterium Nutzung/Akzeptanz (leer lassen wenn nicht relevant)." },
+  { key: "ek_effizienz", panel: "erfolg", type: "textarea", label: "Effizienz",
+    hint: "Welche Aufwände oder Durchlaufzeiten sollen sich verändern?", ai: "Erfolgskriterium Effizienz (leer wenn nicht relevant)." },
+  { key: "ek_qualitaet", panel: "erfolg", type: "textarea", label: "Qualität",
+    hint: "Welche messbare oder beobachtbare Qualitätsverbesserung wird erwartet?", ai: "Erfolgskriterium Qualität (leer wenn nicht relevant)." },
+  { key: "ek_zufriedenheit", panel: "erfolg", type: "textarea", label: "Zufriedenheit",
+    hint: "Wie sollen die Zielgruppen die Veränderung bewerten?", ai: "Erfolgskriterium Zufriedenheit (leer wenn nicht relevant)." },
+  { key: "ek_reifegrad", panel: "erfolg", type: "textarea", label: "Reifegrad",
+    hint: "Welche Fähigkeit oder Arbeitsweise soll anschließend nachweisbar etabliert sein?", ai: "Erfolgskriterium Reifegrad (leer wenn nicht relevant)." },
+  { key: "messIntro", panel: "erfolg", type: "grouplabel", label: "Messmethode",
+    hint: "Leitfrage: Mit welchen Daten oder Methoden wird die Wirkung gemessen? Wann und durch wen?" },
+  { key: "messDatenquelle", panel: "erfolg", type: "text", label: "Datenquelle / Methode",
+    hint: "z. B. Analytics, Jira-Daten, Befragung, Interviews, Audit oder Review.", ai: "Datenquelle/Messmethode." },
+  { key: "messZeitpunkt", panel: "erfolg", type: "text", label: "Messzeitpunkt", ai: "Messzeitpunkt/-zeitraum (nur wenn genannt)." },
+  { key: "messVerantwortlich", panel: "erfolg", type: "text", label: "Verantwortlich für Messung", ai: "Verantwortliche Person/Rolle für die Messung." },
+  // --- Deliverables
+  { key: "deliverables", panel: "deliv", type: "list", req: true, label: "Geplante Ergebnisse",
+    hint: "Leitfrage: Welche konkreten und nutzbaren Ergebnisse sollen entstehen? Z. B. Standards, Prozesse, Guidelines, Templates, Toolkits, Dokumentationen, Tool-Konfigurationen, Trainings, Pilotauswertungen, Governance-Modell.",
+    ai: "2–4 konkrete Deliverables." },
+  // --- Akzeptanzkriterien (eigenes Jira-Feld)
+  { key: "akzeptanzkriterien", panel: "ak", type: "list", req: true, label: "Outcome-Akzeptanzkriterien",
+    hint: "Verbindliche, überprüfbare Kriterien für die Abnahme – werden in Jira als Checkliste gepflegt.",
+    ai: "3 überprüfbare Outcome-Akzeptanzkriterien." },
+  // --- Pilot & Einführung
+  { key: "validierung", panel: "pilot", type: "textarea", label: "Validierung",
+    hint: "Leitfrage: Wie werden Problemverständnis, Bedarf und Lösungsansatz überprüft? Welche Zielgruppen werden einbezogen?",
+    ai: "Wie Problem/Lösung validiert werden." },
+  { key: "pilotGeplant", panel: "pilot", type: "select", options: ["Noch offen", "Ja", "Nein"], label: "Ist ein Pilot geplant?",
+    hint: "Steuert, ob die Pilot-Details abgefragt werden.", ai: "\"Ja\", \"Nein\" oder \"Noch offen\"." },
+  { key: "pilotPartner", panel: "pilot", type: "text", label: "Pilotpartner", showIf: v => v.pilotGeplant === "Ja",
+    hint: "Team oder Bereich für die Pilotierung.", ai: "Pilot-Team/-Bereich (nur wenn genannt)." },
+  { key: "pilotUmfang", panel: "pilot", type: "text", label: "Umfang und Dauer des Piloten", showIf: v => v.pilotGeplant === "Ja",
+    ai: "Rahmen des Piloten (nur wenn genannt)." },
+  { key: "pilotHypothesen", panel: "pilot", type: "textarea", label: "Zu prüfende Hypothesen / Kriterien", showIf: v => v.pilotGeplant === "Ja",
+    ai: "Hypothesen/Kriterien für den Piloten." },
+  { key: "rolloutKommunikation", panel: "pilot", type: "textarea", label: "Rollout – Einführung und Kommunikation",
+    hint: "Leitfrage: Wie wird die Lösung eingeführt und kommuniziert?", ai: "Einführung & Kommunikation." },
+  { key: "rolloutTraining", panel: "pilot", type: "textarea", label: "Rollout – Training und Unterstützung",
+    ai: "Training & Unterstützung." },
+  { key: "rolloutFeedback", panel: "pilot", type: "textarea", label: "Rollout – Feedback und Weiterentwicklung",
+    hint: "Wie wird Feedback nach dem Rollout aufgenommen?", ai: "Feedback-Aufnahme nach Rollout." },
+  { key: "regelbetriebUebergang", panel: "pilot", type: "textarea", label: "Übergang in den Regelbetrieb",
+    hint: "Leitfrage: Wie wird die Veränderung in den Regelbetrieb überführt? Wer übernimmt anschließend Verantwortung?",
+    ai: "Überführung in den Regelbetrieb." },
+  // --- Zeit
+  { key: "startDatum", panel: "zeit", type: "text", label: "Geplanter Start",
+    hint: "Datum, z. B. 01.10.2026.", ai: "Startdatum (nur wenn genannt, Format TT.MM.JJJJ oder Quartal)." },
+  { key: "endeDatum", panel: "zeit", type: "text", label: "Geplantes Ende",
+    hint: "Datum bzw. Quartal.", ai: "Enddatum/Quartal (nur wenn genannt)." },
+  { key: "zeitVorgaben", panel: "zeit", type: "text", label: "Verbindliche zeitliche Vorgaben",
+    hint: "Nur falls vorhanden.", ai: "Verbindliche Termine (nur wenn genannt)." },
+  { key: "msIntro", panel: "zeit", type: "grouplabel", label: "Meilensteine",
+    hint: "Leitfrage: Welche fachlichen oder organisatorischen Zwischenziele strukturieren die Initiative? Nur relevante Meilensteine ausfüllen." },
+  { key: "ms_baseline", panel: "zeit", type: "text", label: "Problemverständnis / Baseline", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_konzept", panel: "zeit", type: "text", label: "Lösungskonzept", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_pilotstart", panel: "zeit", type: "text", label: "Pilotstart", showIf: v => v.pilotGeplant !== "Nein", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_pilotauswertung", panel: "zeit", type: "text", label: "Pilotauswertung und Entscheidung", showIf: v => v.pilotGeplant !== "Nein", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_rollout", panel: "zeit", type: "text", label: "Rollout", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_uebergabe", panel: "zeit", type: "text", label: "Übergabe in den Regelbetrieb", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_wirkung", panel: "zeit", type: "text", label: "Wirkungsmessung", ai: "Datum (nur wenn genannt)." },
+  // --- Team
+  { key: "epicOwner", panel: "team", type: "text", req: true, label: "Epic Owner",
+    hint: "Leitfrage: Wer trägt die Verantwortung für Zielerreichung, Priorisierung, Fortschritt und Abstimmung?",
+    ai: "Name und Rolle des Epic Owners (nur wenn genannt)." },
+  { key: "umsetzungsteam", panel: "team", type: "textarea", label: "Umsetzungsteam",
+    hint: "Leitfrage: Wer arbeitet aktiv an der Initiative und welche Rollen oder Kompetenzen werden benötigt?",
+    ai: "Namen, Rollen oder Squad." },
+  { key: "auftraggeber", panel: "team", type: "text", label: "Auftraggeber und Entscheider",
+    hint: "Leitfrage: Wer trifft Richtungs- und Priorisierungsentscheidungen, nimmt Ergebnisse ab und kann Eskalationen auflösen?",
+    ai: "Auftraggeber/Entscheider (nur wenn genannt)." },
+  { key: "zielgruppenvertretung", panel: "team", type: "textarea", label: "Zielgruppenvertretung / Pilotpartner",
+    hint: "Leitfrage: Welche Teams oder Personen vertreten die späteren Nutzerinnen und Nutzer?",
+    ai: "Zielgruppenvertretung." },
+  { key: "stakeholder", panel: "team", type: "textarea", label: "Stakeholder",
+    hint: "Leitfrage: Wer muss informiert, konsultiert oder beteiligt werden? Z. B. UX, Produktteams, IT, Einkauf, Datenschutz, Betriebsrat, Legal, Kommunikation.",
+    ai: "Stakeholder und Art der Beteiligung." },
+  { key: "rbIntro", panel: "team", type: "grouplabel", label: "Ownership im Regelbetrieb",
+    hint: "Leitfrage: Wer verantwortet Pflege, Support und Weiterentwicklung nach Abschluss des Epics?" },
+  { key: "rb_verantwortlich", panel: "team", type: "text", label: "Verantwortlich im Regelbetrieb", ai: "Name/Rolle/Team (nur wenn genannt)." },
+  { key: "rb_pflege", panel: "team", type: "text", label: "Pflege und Support (Vorgehen)", ai: "Vorgehen für Pflege & Support." },
+  { key: "rb_entscheidungen", panel: "team", type: "text", label: "Entscheidungen und Freigaben (Regelung)", ai: "Regelung für Entscheidungen/Freigaben." },
+  // --- Input & Vorarbeiten
+  { key: "vorarbeiten", panel: "input", type: "list", label: "Vorhandene Erkenntnisse & Vorarbeiten",
+    hint: "Leitfrage: Welche Daten, Interviews, Retros, Feedbacks oder Reifegradanalysen liegen vor? An welche Standards, Prozesse, Tools oder Erfahrungen kann angeknüpft werden? (Mit Links)",
+    ai: "Vorhandene Erkenntnisse, Standards, Referenzen." },
+  // --- Risiken
+  { key: "risiken", panel: "risiko", type: "list", label: "Risiken",
+    hint: "Leitfrage: Was könnte Zielerreichung, Umsetzung oder nachhaltige Nutzung gefährden? Z. B. Akzeptanz, Mandat, Ressourcen, Kompetenzen, Toolabhängigkeiten, ungeklärte Ownership. Je Eintrag: Risiko und mögliche Auswirkung.",
+    ai: "2–3 Risiken mit möglicher Auswirkung." },
+  { key: "gegenmassnahmen", panel: "risiko", type: "list", label: "Gegenmaßnahmen",
+    hint: "Leitfrage: Mit welchen präventiven oder korrigierenden Maßnahmen werden die Risiken reduziert? Je Eintrag: Maßnahme, Owner, ggf. Termin.",
+    ai: "Gegenmaßnahmen zu den Risiken (mit Owner falls bekannt)." },
+  // --- Offene Punkte
+  { key: "offenePunkte", panel: "offen", type: "optable", label: "Offene Punkte, Annahmen & Abhängigkeiten",
+    hint: "Leitfrage: Was ist ungeklärt, welche Annahmen müssen validiert werden, wovon ist die Initiative abhängig, welche Entscheidungen werden benötigt? Jeder Eintrag erhält Owner, Status und möglichst einen Klärungstermin.",
+    ai: "Offene Punkte/Annahmen/Abhängigkeiten/Entscheidungen als Objekte." },
+];
+
+const FIELD_BY_KEY = Object.fromEntries(FIELDS.map(f => [f.key, f]));
+
+/* ---------------- State ---------------- */
+let S = {
+  values: {},   // key -> string | bool | array | array<obj>
+  source: {},   // key -> 'ai' | 'user'
+  idea: "",
+  step: 0,
+};
+function defaultVal(f) {
+  if (f.type === "list") return [];
+  if (f.type === "optable") return [];
+  if (f.type === "check") return false;
+  if (f.type === "select" && f.key === "pilotGeplant") return "Noch offen";
+  return "";
+}
+FIELDS.forEach(f => { if (f.type !== "grouplabel") S.values[f.key] = defaultVal(f); });
+
+function save() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ values: S.values, source: S.source, idea: S.idea, step: S.step })); } catch (e) {}
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (d.values) Object.keys(d.values).forEach(k => { if (k in S.values) S.values[k] = d.values[k]; });
+    S.source = d.source || {};
+    S.idea = d.idea || "";
+    S.step = d.step || 0;
+  } catch (e) {}
+}
+load();
+
+const isEmpty = v => Array.isArray(v) ? v.filter(x => typeof x === "string" ? x.trim() : true).length === 0 : (typeof v === "boolean" ? false : !String(v || "").trim());
+
+/* ---------------- Rendering ---------------- */
+const STEPS = [
+  { n: 0, label: "Eingabe & KI" },
+  { n: 1, label: "Auftrag" },
+  { n: 2, label: "Umsetzung" },
+  { n: 3, label: "Verantwortung" },
+  { n: 4, label: "Risiken & Offenes" },
+  { n: 5, label: "Export" },
+];
+
+function renderStepper() {
+  const nav = document.getElementById("stepper");
+  nav.innerHTML = "";
+  STEPS.forEach(st => {
+    const b = document.createElement("button");
+    b.innerHTML = `<span class="num">${st.n + 1}</span> ${st.label}`;
+    if (st.n === S.step) b.classList.add("active");
+    const missing = missingRequiredInStep(st.n);
+    if (st.n >= 1 && st.n <= 4 && missing.length) {
+      const dot = document.createElement("span");
+      dot.className = "warn-dot"; dot.title = "Pflichtfelder offen";
+      b.appendChild(dot);
+    }
+    b.addEventListener("click", () => gotoStep(st.n));
+    nav.appendChild(b);
+  });
+}
+
+function fieldBadges(f) {
+  let html = "";
+  if (f.req) html += `<span class="badge req">Pflicht</span>`;
+  const src = S.source[f.key];
+  if (src === "ai") html += `<span class="badge ai">✨ KI-Vorschlag</span>`;
+  if (src === "user") html += `<span class="badge edited">✓ Bearbeitet</span>`;
+  return html;
+}
+
+function renderPanels() {
+  for (let stepN = 1; stepN <= 4; stepN++) {
+    const container = document.getElementById(`step${stepN}-panels`);
+    container.innerHTML = "";
+    PANELS.filter(p => p.step === stepN).forEach(p => {
+      const panel = document.createElement("div");
+      panel.className = "panel";
+      panel.style.borderLeftColor = p.color;
+      panel.innerHTML = `<div class="panel-head"><span>${p.title}</span>${p.resp ? `<span class="resp">Verantwortung: ${p.resp}</span>` : ""}</div>`;
+      const body = document.createElement("div");
+      body.className = "panel-body";
+      FIELDS.filter(f => f.panel === p.id).forEach(f => body.appendChild(renderField(f)));
+      panel.appendChild(body);
+      container.appendChild(panel);
+    });
+  }
+  updateVisibility();
+}
+
+function renderField(f) {
+  if (f.type === "grouplabel") {
+    const d = document.createElement("div");
+    d.innerHTML = `<div class="group-label">${f.label}</div>${f.hint ? `<div class="group-hint">${f.hint}</div>` : ""}`;
+    return d;
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "field";
+  wrap.dataset.key = f.key;
+  const label = `<label class="f-label">${f.label} <span class="badges" data-badges="${f.key}">${fieldBadges(f)}</span></label>`;
+  const hint = f.hint ? `<div class="hint">${f.hint}</div>` : "";
+
+  if (f.type === "text") {
+    wrap.innerHTML = label + hint + `<input type="text" data-input="${f.key}">`;
+    const inp = wrap.querySelector("input");
+    inp.value = S.values[f.key] || "";
+    inp.addEventListener("input", () => setValue(f.key, inp.value, "user"));
+  } else if (f.type === "textarea") {
+    wrap.innerHTML = label + hint + `<textarea data-input="${f.key}"></textarea>`;
+    const inp = wrap.querySelector("textarea");
+    inp.value = S.values[f.key] || "";
+    inp.addEventListener("input", () => { setValue(f.key, inp.value, "user"); autogrow(inp); });
+    setTimeout(() => autogrow(inp), 0);
+  } else if (f.type === "select") {
+    const opts = (f.req ? [`<option value="">– bitte wählen –</option>`] : [])
+      .concat(f.options.map(o => `<option value="${o}">${o}</option>`)).join("");
+    wrap.innerHTML = label + hint + `<select data-input="${f.key}">${opts}</select>`;
+    const inp = wrap.querySelector("select");
+    inp.value = S.values[f.key] || "";
+    inp.addEventListener("change", () => { setValue(f.key, inp.value, "user"); updateVisibility(); });
+  } else if (f.type === "check") {
+    wrap.innerHTML = `<label class="check-row"><input type="checkbox" data-input="${f.key}"> ${f.label} <span class="badges" data-badges="${f.key}">${fieldBadges(f)}</span></label>` + hint;
+    const inp = wrap.querySelector("input");
+    inp.checked = !!S.values[f.key];
+    inp.addEventListener("change", () => { setValue(f.key, inp.checked, "user"); updateVisibility(); });
+  } else if (f.type === "list") {
+    wrap.innerHTML = label + hint + `<div class="list-field" data-list="${f.key}"></div><button class="btn-add" type="button">+ Eintrag hinzufügen</button>`;
+    wrap.querySelector(".btn-add").addEventListener("click", () => {
+      S.values[f.key].push("");
+      S.source[f.key] = "user";
+      renderList(f.key); save(); refreshMeta();
+    });
+    setTimeout(() => renderList(f.key), 0);
+  } else if (f.type === "optable") {
+    wrap.innerHTML = label + hint + `<div class="op-wrap"><table class="op-table"><thead><tr>
+      <th style="min-width:110px">Typ</th><th style="min-width:160px">Beschreibung</th><th style="min-width:140px">Auswirkung</th>
+      <th style="min-width:140px">Klärung/Validierung</th><th style="min-width:90px">Owner</th><th style="min-width:90px">Status</th><th style="min-width:90px">Fällig bis</th><th></th>
+    </tr></thead><tbody data-optable="${f.key}"></tbody></table></div>
+    <button class="btn-add" type="button" style="margin-top:8px;">+ Eintrag hinzufügen</button>`;
+    wrap.querySelector(".btn-add").addEventListener("click", () => {
+      S.values[f.key].push({ typ: "Offener Punkt", beschreibung: "", auswirkung: "", klaerung: "", owner: "", status: "Offen", faellig: "" });
+      S.source[f.key] = "user";
+      renderOpTable(f.key); save();
+    });
+    setTimeout(() => renderOpTable(f.key), 0);
+  }
+  return wrap;
+}
+
+function autogrow(ta) {
+  ta.style.height = "auto";
+  ta.style.height = Math.max(68, ta.scrollHeight + 2) + "px";
+}
+
+function renderList(key) {
+  const host = document.querySelector(`[data-list="${key}"]`);
+  if (!host) return;
+  host.innerHTML = "";
+  const arr = S.values[key];
+  arr.forEach((val, i) => {
+    const row = document.createElement("div");
+    row.className = "list-item";
+    row.innerHTML = `<input type="text" value=""><button class="btn-icon" title="Entfernen" type="button">✕</button>`;
+    const inp = row.querySelector("input");
+    inp.value = val;
+    inp.addEventListener("input", () => { arr[i] = inp.value; S.source[key] = "user"; save(); refreshMeta(); });
+    row.querySelector("button").addEventListener("click", () => {
+      arr.splice(i, 1); S.source[key] = "user"; renderList(key); save(); refreshMeta();
+    });
+    host.appendChild(row);
+  });
+  if (!arr.length) host.innerHTML = `<div class="hint" style="margin-bottom:6px;">Noch keine Einträge.</div>`;
+}
+
+function renderOpTable(key) {
+  const tbody = document.querySelector(`[data-optable="${key}"]`);
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  const arr = S.values[key];
+  arr.forEach((row, i) => {
+    const tr = document.createElement("tr");
+    const sel = (name, options) => {
+      const s = document.createElement("select");
+      options.forEach(o => { const op = document.createElement("option"); op.value = o; op.textContent = o; s.appendChild(op); });
+      s.value = row[name] || options[0];
+      s.addEventListener("change", () => { row[name] = s.value; S.source[key] = "user"; save(); });
+      const td = document.createElement("td"); td.appendChild(s); return td;
+    };
+    const txt = (name, ph) => {
+      const inp = document.createElement("input"); inp.type = "text"; inp.placeholder = ph || "";
+      inp.value = row[name] || "";
+      inp.addEventListener("input", () => { row[name] = inp.value; S.source[key] = "user"; save(); });
+      const td = document.createElement("td"); td.appendChild(inp); return td;
+    };
+    tr.appendChild(sel("typ", OP_TYPEN));
+    tr.appendChild(txt("beschreibung"));
+    tr.appendChild(txt("auswirkung"));
+    tr.appendChild(txt("klaerung"));
+    tr.appendChild(txt("owner"));
+    tr.appendChild(sel("status", OP_STATUS));
+    tr.appendChild(txt("faellig", "Datum"));
+    const tdDel = document.createElement("td");
+    const del = document.createElement("button"); del.className = "btn-icon"; del.type = "button"; del.textContent = "✕";
+    del.addEventListener("click", () => { arr.splice(i, 1); S.source[key] = "user"; renderOpTable(key); save(); });
+    tdDel.appendChild(del);
+    tr.appendChild(tdDel);
+    tbody.appendChild(tr);
+  });
+  if (!arr.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="color:var(--gray); font-style:italic; padding:10px 6px;">Noch keine Einträge.</td></tr>`;
+  }
+}
+
+function setValue(key, val, source) {
+  S.values[key] = val;
+  S.source[key] = source;
+  save();
+  refreshMeta();
+}
+
+/* Badges, Pflicht-Markierung, Sichtbarkeit */
+function refreshMeta() {
+  FIELDS.forEach(f => {
+    if (f.type === "grouplabel") return;
+    const badgeHost = document.querySelector(`[data-badges="${f.key}"]`);
+    if (badgeHost) badgeHost.innerHTML = fieldBadges(f);
+    const wrap = document.querySelector(`.field[data-key="${f.key}"]`);
+    if (wrap) {
+      wrap.classList.toggle("src-ai", S.source[f.key] === "ai");
+      wrap.classList.toggle("missing", !!f.req && isEmpty(S.values[f.key]));
+    }
+  });
+  renderStepper();
+  updateProgress();
+}
+
+function updateVisibility() {
+  FIELDS.forEach(f => {
+    if (!f.showIf) return;
+    const wrap = document.querySelector(`.field[data-key="${f.key}"]`);
+    if (wrap) wrap.classList.toggle("hidden", !f.showIf(S.values));
+  });
+}
+
+function requiredFields() { return FIELDS.filter(f => f.req && (!f.showIf || f.showIf(S.values))); }
+function missingRequired() { return requiredFields().filter(f => isEmpty(S.values[f.key])); }
+function missingRequiredInStep(stepN) {
+  return missingRequired().filter(f => (PANELS.find(p => p.id === f.panel) || {}).step === stepN);
+}
+
+function updateProgress() {
+  const req = requiredFields();
+  const done = req.length - missingRequired().length;
+  document.getElementById("progText").textContent = `Pflichtfelder: ${done} / ${req.length}`;
+}
+
+/* ---------------- Navigation ---------------- */
+function gotoStep(n) {
+  S.step = Math.max(0, Math.min(5, n));
+  document.querySelectorAll(".step-view").forEach(v => v.classList.toggle("active", +v.dataset.step === S.step));
+  document.getElementById("btnPrev").disabled = S.step === 0;
+  document.getElementById("btnNext").textContent = S.step === 5 ? "Fertig ✓" : "Weiter →";
+  if (S.step === 5) renderExport();
+  renderStepper();
+  save();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+document.getElementById("btnPrev").addEventListener("click", () => gotoStep(S.step - 1));
+document.getElementById("btnNext").addEventListener("click", () => {
+  if (S.step === 5) { renderExport(); return; }
+  gotoStep(S.step + 1);
+});
+
+/* ---------------- Step 0: API-Key, Idee, Reset ---------------- */
+const apiKeyInp = document.getElementById("apiKey");
+apiKeyInp.value = localStorage.getItem(LS_APIKEY) || "";
+apiKeyInp.addEventListener("input", () => localStorage.setItem(LS_APIKEY, apiKeyInp.value.trim()));
+
+const ideaTa = document.getElementById("ideaText");
+ideaTa.value = S.idea;
+ideaTa.addEventListener("input", () => { S.idea = ideaTa.value; save(); });
+
+document.getElementById("btnSkip").addEventListener("click", () => gotoStep(1));
+document.getElementById("btnReset").addEventListener("click", () => {
+  if (!confirm("Wirklich alle Eingaben und KI-Vorschläge verwerfen?")) return;
+  localStorage.removeItem(LS_KEY);
+  location.reload();
+});
+
+/* ---------------- Audio: Aufnahme + Diktat ---------------- */
+let mediaRecorder = null, mediaStream = null, recChunks = [], recTimerIv = null, recStartTs = 0;
+let recognition = null, recognizing = false, finalSinceStart = "";
+
+async function populateMics() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const sel = document.getElementById("micSelect");
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">Standard-Mikrofon</option>`;
+    devices.filter(d => d.kind === "audioinput" && d.deviceId).forEach(d => {
+      const o = document.createElement("option");
+      o.value = d.deviceId;
+      o.textContent = d.label || `Mikrofon ${sel.length}`;
+      sel.appendChild(o);
+    });
+    sel.value = cur;
+  } catch (e) { /* ignore */ }
+}
+populateMics();
+if (navigator.mediaDevices) navigator.mediaDevices.addEventListener?.("devicechange", populateMics);
+
+function fmtTime(s) { return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`; }
+
+const btnRecord = document.getElementById("btnRecord");
+btnRecord.addEventListener("click", async () => {
+  if (mediaRecorder && mediaRecorder.state === "recording") { stopRecording(); return; }
+  await startRecording();
+});
+
+async function startRecording() {
+  const deviceId = document.getElementById("micSelect").value;
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: deviceId ? { deviceId: { exact: deviceId } } : true
+    });
+  } catch (e) {
+    alert("Zugriff auf die Audioquelle fehlgeschlagen: " + e.message);
+    return;
+  }
+  populateMics(); // Labels sind nach erster Berechtigung sichtbar
+  recChunks = [];
+  mediaRecorder = new MediaRecorder(mediaStream);
+  mediaRecorder.ondataavailable = e => { if (e.data.size) recChunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+    const player = document.getElementById("audioPlayback");
+    player.src = URL.createObjectURL(blob);
+    player.classList.remove("hidden");
+    mediaStream.getTracks().forEach(t => t.stop());
+  };
+  mediaRecorder.start();
+  recStartTs = Date.now();
+  document.getElementById("recIndicator").classList.add("on");
+  document.getElementById("recTimer").textContent = "0:00";
+  recTimerIv = setInterval(() => {
+    document.getElementById("recTimer").textContent = fmtTime((Date.now() - recStartTs) / 1000);
+  }, 500);
+  btnRecord.textContent = "⏹️ Aufnahme beenden";
+  btnRecord.classList.remove("ghost"); btnRecord.classList.add("rec");
+  startRecognition();
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+  clearInterval(recTimerIv);
+  document.getElementById("recIndicator").classList.remove("on");
+  btnRecord.textContent = "🎙️ Aufnahme & Diktat starten";
+  btnRecord.classList.add("ghost"); btnRecord.classList.remove("rec");
+  stopRecognition();
+}
+
+function startRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const view = document.getElementById("transcriptView");
+  if (!SR) {
+    view.innerHTML = `<span class="interim">⚠️ Live-Transkription wird von diesem Browser nicht unterstützt (Chrome oder Edge verwenden). Die Aufnahme läuft trotzdem.</span>`;
+    return;
+  }
+  recognition = new SR();
+  recognition.lang = "de-DE";
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognizing = true;
+  finalSinceStart = "";
+  recognition.onresult = e => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) {
+        finalSinceStart += t + " ";
+        ideaTa.value = (ideaTa.value.trimEnd() + "\n" + t.trim()).trim();
+        S.idea = ideaTa.value; save();
+      } else interim += t;
+    }
+    view.innerHTML = interim ? `<span class="interim">… ${escapeHtml(interim)}</span>` : "";
+  };
+  recognition.onend = () => { if (recognizing) { try { recognition.start(); } catch (e) {} } };
+  recognition.onerror = e => {
+    if (e.error === "not-allowed") view.innerHTML = `<span class="interim">⚠️ Mikrofon-Zugriff für die Spracherkennung verweigert.</span>`;
+  };
+  try { recognition.start(); } catch (e) {}
+}
+function stopRecognition() {
+  recognizing = false;
+  if (recognition) { try { recognition.stop(); } catch (e) {} recognition = null; }
+  document.getElementById("transcriptView").innerHTML = "";
+}
+
+function escapeHtml(s) { return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+/* ---------------- KI-Vorbefüllung ---------------- */
+function buildSchema() {
+  const props = {};
+  FIELDS.forEach(f => {
+    if (f.type === "grouplabel") return;
+    if (f.type === "check") props[f.key] = { type: "boolean", description: f.ai || f.label };
+    else if (f.type === "list") props[f.key] = { type: "array", items: { type: "string" }, description: f.ai || f.label };
+    else if (f.type === "optable") props[f.key] = {
+      type: "array", description: f.ai || f.label,
+      items: {
+        type: "object",
+        properties: {
+          typ: { type: "string", enum: OP_TYPEN },
+          beschreibung: { type: "string" },
+          auswirkung: { type: "string" },
+          klaerung: { type: "string" },
+          owner: { type: "string" },
+          faellig: { type: "string" },
+        },
+        required: ["typ", "beschreibung", "auswirkung", "klaerung", "owner", "faellig"],
+        additionalProperties: false,
+      },
+    };
+    else if (f.type === "select") props[f.key] = { type: "string", description: (f.ai || f.label) + " Erlaubte Werte: " + f.options.join(", ") + " (oder leer)." };
+    else props[f.key] = { type: "string", description: f.ai || f.label };
+  });
+  props.rueckfragen = { type: "array", items: { type: "string" }, description: "3–6 wichtigste Rückfragen, die vor Beauftragung des Epics geklärt werden sollten." };
+  return {
+    type: "object",
+    properties: props,
+    required: Object.keys(props),
+    additionalProperties: false,
+  };
+}
+
+const SYSTEM_PROMPT = `Du bist Assistenz des UX-Ops-Teams einer Versicherung (R+V) und hilfst, Jira-Epics für UX-Ops-Initiativen strukturiert anzulegen (Bereiche: Research Ops, Design Ops, Governance, Tooling, Enablement).
+
+Du erhältst eine freie Beschreibung, Notizen oder ein Gesprächstranskript. Extrahiere daraus die Inhalte für das Epic-Template und ergänze sinnvolle, klar als Vorschlag taugliche Entwürfe.
+
+Regeln:
+- Antworte ausschließlich auf Deutsch, im JSON-Format gemäß Schema.
+- Fakten (Namen, Daten, Teams, Termine) NUR übernehmen, wenn sie im Input genannt oder eindeutig ableitbar sind. Niemals Personen, Daten oder Termine erfinden — solche Felder leer ("") lassen.
+- Inhaltliche Felder (Ausgangslage, Ziel, Scope, Deliverables, Risiken, Akzeptanzkriterien, Erfolgskriterien) dürfen als gut begründete Vorschläge formuliert werden, die zum Input passen.
+- Mehrzeilige Felder: eine Aussage pro Zeile, ohne Aufzählungszeichen (kein "-", kein "*").
+- Erfolgskriterien-Dimensionen nur befüllen, wenn relevant; sonst leer lassen.
+- "pilotGeplant": "Ja"/"Nein" nur bei klarer Aussage im Input, sonst "Noch offen".
+- "titel": prägnant, Muster wie "UX Ops · <Thema>" ist erlaubt. "epicName": 2–4 Worte.
+- "offenePunkte": echte Unklarheiten, Annahmen, Abhängigkeiten oder nötige Entscheidungen aus dem Input ableiten (owner/faellig leer lassen, wenn unbekannt).
+- "rueckfragen": die 3–6 wichtigsten offenen Fragen an das Team.`;
+
+document.getElementById("btnAiFill").addEventListener("click", async () => {
+  const key = apiKeyInp.value.trim();
+  const statusEl = document.getElementById("aiStatus");
+  const idea = ideaTa.value.trim();
+  if (!key) { statusEl.className = "ai-status error"; statusEl.textContent = "Bitte zuerst den Anthropic API-Key eintragen."; return; }
+  if (idea.length < 20) { statusEl.className = "ai-status error"; statusEl.textContent = "Bitte zuerst die Grundidee beschreiben (mind. ein paar Sätze)."; return; }
+
+  const btn = document.getElementById("btnAiFill");
+  btn.disabled = true;
+  statusEl.className = "ai-status loading";
+  statusEl.textContent = "✨ KI analysiert die Eingabe und befüllt die Felder …";
+  document.getElementById("rueckfragenBox").style.display = "none";
+
+  const today = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: document.getElementById("modelSelect").value,
+        max_tokens: 12000,
+        system: SYSTEM_PROMPT,
+        output_config: { format: { type: "json_schema", schema: buildSchema() } },
+        messages: [{
+          role: "user",
+          content: `Heutiges Datum: ${today}\n\nEingabe (Beschreibung/Notizen/Transkript):\n"""\n${idea}\n"""`,
+        }],
+      }),
+    });
+    if (!resp.ok) {
+      let msg = `HTTP ${resp.status}`;
+      try { const err = await resp.json(); msg += " – " + (err.error?.message || JSON.stringify(err)); } catch (e) {}
+      throw new Error(msg);
+    }
+    const data = await resp.json();
+    if (data.stop_reason === "refusal") throw new Error("Die Anfrage wurde vom Modell abgelehnt.");
+    const textBlock = (data.content || []).find(b => b.type === "text");
+    if (!textBlock) throw new Error("Keine verwertbare Antwort erhalten.");
+    const result = JSON.parse(textBlock.text);
+    applyAiResult(result);
+    const filled = FIELDS.filter(f => f.type !== "grouplabel" && S.source[f.key] === "ai" && !isEmpty(S.values[f.key])).length;
+    statusEl.className = "ai-status ok";
+    statusEl.textContent = `✓ ${filled} Felder vorbefüllt (violett markiert). Bitte in den nächsten Schritten prüfen und anpassen.`;
+    if (Array.isArray(result.rueckfragen) && result.rueckfragen.length) {
+      const ul = document.getElementById("rueckfragenList");
+      ul.innerHTML = "";
+      result.rueckfragen.forEach(q => { const li = document.createElement("li"); li.textContent = q; ul.appendChild(li); });
+      document.getElementById("rueckfragenBox").style.display = "block";
+    }
+  } catch (e) {
+    statusEl.className = "ai-status error";
+    statusEl.textContent = "Fehler beim KI-Aufruf:\n" + e.message +
+      "\n\nHinweise: API-Key prüfen · Firmennetz/Proxy kann api.anthropic.com blockieren · ggf. anderes Netz testen.";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function applyAiResult(result) {
+  FIELDS.forEach(f => {
+    if (f.type === "grouplabel") return;
+    const val = result[f.key];
+    if (val === undefined || val === null) return;
+    const current = S.values[f.key];
+    const userEdited = S.source[f.key] === "user" && !isEmpty(current);
+    if (userEdited) return; // Nutzereingaben nie überschreiben
+    if (f.type === "check") {
+      if (typeof val === "boolean" && val !== current) { S.values[f.key] = val; S.source[f.key] = "ai"; }
+    } else if (f.type === "list") {
+      const arr = (Array.isArray(val) ? val : []).map(x => String(x).trim()).filter(Boolean);
+      if (arr.length) { S.values[f.key] = arr; S.source[f.key] = "ai"; }
+    } else if (f.type === "optable") {
+      const arr = (Array.isArray(val) ? val : []).filter(o => o && String(o.beschreibung || "").trim())
+        .map(o => ({
+          typ: OP_TYPEN.includes(o.typ) ? o.typ : "Offener Punkt",
+          beschreibung: String(o.beschreibung || ""), auswirkung: String(o.auswirkung || ""),
+          klaerung: String(o.klaerung || ""), owner: String(o.owner || ""),
+          status: "Offen", faellig: String(o.faellig || ""),
+        }));
+      if (arr.length) { S.values[f.key] = arr; S.source[f.key] = "ai"; }
+    } else {
+      const s = String(val).trim();
+      if (f.type === "select" && s && !f.options.includes(s)) return;
+      if (s) { S.values[f.key] = s; S.source[f.key] = "ai"; }
+    }
+  });
+  save();
+  renderPanels();   // Werte + Listen + Tabelle neu rendern
+  syncInputs();
+  refreshMeta();
+}
+
+function syncInputs() {
+  FIELDS.forEach(f => {
+    if (f.type === "grouplabel" || f.type === "list" || f.type === "optable") return;
+    const el = document.querySelector(`[data-input="${f.key}"]`);
+    if (!el) return;
+    if (f.type === "check") el.checked = !!S.values[f.key];
+    else el.value = S.values[f.key] || "";
+    if (el.tagName === "TEXTAREA") autogrow(el);
+  });
+}
+
+/* ---------------- Export: Jira-Wiki-Markup ---------------- */
+const P = "_Noch offen …_";
+const v = k => String(S.values[k] || "").trim();
+const lines = k => v(k) ? v(k).split(/\n+/).map(s => s.trim()).filter(Boolean) : [];
+const bullets = (k, placeholder) => {
+  const ls = lines(k);
+  return (ls.length ? ls : [placeholder || P]).map(l => "* " + l).join("\n");
+};
+const listBullets = (k, placeholder) => {
+  const arr = (S.values[k] || []).map(x => String(x).trim()).filter(Boolean);
+  return (arr.length ? arr : [placeholder || P]).map(l => "* " + l).join("\n");
+};
+const labeled = (label, key) => `* *${label}:* ${v(key) || P}`;
+
+function wikiHint(text, withLeitfragen) {
+  return withLeitfragen ? `{color:#6b778c}_${text}_{color}\n` : "";
+}
+
+function buildWikiDescription(withLeitfragen) {
+  const L = withLeitfragen;
+  const out = [];
+  const push = s => out.push(s);
+  const panelStart = (title, color) => push(`{panel:title=${title}|borderColor=${color}|borderWidth=2}`);
+  const panelEnd = () => push("{panel}");
+  const resp = t => push(`_Verantwortung: ${t}_\n`);
+
+  /* 🔵 Auftrag verstehen */
+  push("h2. 🔵 Auftrag verstehen\n");
+  panelStart("📌 Initiative & Ausgangslage", "#4167c1");
+  resp("Initial durch UX Ops");
+  push("*Initiative*");
+  if (L) push(wikiHint("Leitfrage: Wie heißt die UX-Ops-Initiative und welchem Bereich ist sie zuzuordnen, z. B. Research Ops, Design Ops, Governance, Tooling oder Enablement?", L));
+  push(`* ${v("initiativeName") || P}${v("initiativeBereich") ? " – Bereich: " + v("initiativeBereich") : ""}\n`);
+  push("*Ausgangslage und Problem*");
+  if (L) push(wikiHint("Leitfrage: Welches konkrete Problem bzw. welche Ineffizienz besteht heute, woran zeigt sich dies und warum sollte das Thema jetzt bearbeitet werden?", L));
+  push(bullets("ausgangslage") + "\n");
+  panelEnd();
+
+  panelStart("👤 Zielgruppen & Arbeitskontext", "#4167c1");
+  resp("Initial durch UX Ops · Bei Bedarf gemeinsam mit dem Squad konkretisieren");
+  push("*Primäre Zielgruppe*");
+  if (L) push(wikiHint("Leitfrage: Wer soll die neue Lösung, den Prozess oder den Service später hauptsächlich nutzen?", L));
+  push(bullets("zielgruppePrimaer") + "\n");
+  push("*Weitere betroffene Gruppen*");
+  if (L) push(wikiHint("Leitfrage: Wer ist darüber hinaus betroffen oder muss mitwirken, entscheiden, freigeben bzw. die Veränderung unterstützen?", L));
+  push(bullets("zielgruppeWeitere") + "\n");
+  push("*Arbeitskontext*");
+  if (L) push(wikiHint("Leitfrage: In welcher Situation bzw. in welchem Prozess tritt das Problem auf? Welche heutigen Arbeitsweisen, Tools oder Schnittstellen sind betroffen und welche Hürden bestehen dabei?", L));
+  push(bullets("arbeitskontext") + "\n");
+  panelEnd();
+
+  panelStart("🏁 Zielbild & OKR-Beitrag", "#4167c1");
+  resp("Initial durch UX Ops");
+  push("*Ziel und gewünschte Veränderung*");
+  if (L) push(wikiHint("Leitfrage: Was soll nach Abschluss konkret besser oder anders sein? Welche neue Fähigkeit, Arbeitsweise oder Qualität soll etabliert sein?", L));
+  push(bullets("ziel") + "\n");
+  push("*Nicht-Ziele*");
+  if (L) push(wikiHint("Leitfrage: Welche möglicherweise erwarteten Wirkungen oder Ergebnisse verfolgt die Initiative ausdrücklich nicht?", L));
+  push(bullets("nichtZiele") + "\n");
+  push("*Scope*");
+  if (L) push(wikiHint("Leitfrage: Welche Themen, Prozesse, Zielgruppen, Organisationseinheiten oder Bestandteile gehören zum Auftrag?", L));
+  push(bullets("scope") + "\n");
+  push("*Out of Scope*");
+  if (L) push(wikiHint("Leitfrage: Welche angrenzenden Themen oder Bestandteile werden im Rahmen dieser Initiative ausdrücklich nicht bearbeitet?", L));
+  push(bullets("outOfScope") + "\n");
+  push("*Beitrag zum UX-Ops-OKR*");
+  if (L) push(wikiHint("Leitfrage: Welches Objective und Key Result unterstützt die Initiative und welchen konkreten Beitrag soll sie dazu leisten?", L));
+  push(labeled("Objective", "okrObjective"));
+  push(labeled("Key Result", "okrKeyResult"));
+  push(`* *Erwarteter Beitrag:* ${lines("okrBeitrag").join(" ") || P}\n`);
+  panelEnd();
+
+  panelStart("📐 Erfolgsmessung", "#4167c1");
+  resp("Erwartete Wirkung initial durch UX Ops · Messbarkeit gemeinsam konkretisieren");
+  push("*Ausgangssituation / Ausgangswerte*");
+  if (L) push(wikiHint("Leitfrage: Wie stellt sich die Situation heute dar? Welche Basisdaten liegen bereits vor und welche müssen im Rahmen der Initiative noch erhoben werden?", L));
+  push(bullets("ausgangswerte") + "\n");
+  if (S.values.basisdatenFehlen) {
+    push("Die Basisdaten liegen noch nicht vor:");
+    push(labeled("Geplante Erhebung", "erhebungMethode"));
+    push(labeled("Verantwortlich", "erhebungVerantwortlich"));
+    push(labeled("Erhebung bis", "erhebungBis"));
+    push("");
+  }
+  push("*Erfolgskriterien*");
+  if (L) push(wikiHint("Leitfrage: An welchen konkreten Veränderungen erkennen wir den Erfolg der Initiative? Nur relevante Dimensionen ausfüllen und möglichst Kennzahl, Zielwert sowie Messzeitpunkt benennen.", L));
+  const ekDims = [["Nutzung und Akzeptanz", "ek_nutzung"], ["Effizienz", "ek_effizienz"], ["Qualität", "ek_qualitaet"], ["Zufriedenheit", "ek_zufriedenheit"], ["Reifegrad", "ek_reifegrad"]];
+  const ekFilled = ekDims.filter(([, k]) => v(k));
+  if (ekFilled.length) ekFilled.forEach(([lab, k]) => push(`* *${lab}:* ${lines(k).join(" ")}`));
+  else push("* " + P);
+  push("");
+  push("*Messmethode*");
+  if (L) push(wikiHint("Leitfrage: Mit welchen Daten oder Methoden wird die Wirkung gemessen? Wann erfolgt die Messung und wer ist dafür verantwortlich?", L));
+  push(labeled("Datenquelle/Methode", "messDatenquelle"));
+  push(labeled("Messzeitpunkt", "messZeitpunkt"));
+  push(labeled("Verantwortlich", "messVerantwortlich") + "\n");
+  panelEnd();
+  push("----\n");
+
+  /* 🟣 Umsetzung planen */
+  push("h2. 🟣 Umsetzung planen\n");
+  panelStart("📦 Ergebnisse & Deliverables", "#8a6ec6");
+  resp("Initial gemeinsam konkretisieren · Ausarbeitung durch den Squad");
+  push("*Geplante Ergebnisse*");
+  if (L) push(wikiHint("Leitfrage: Welche konkreten und nutzbaren Ergebnisse sollen voraussichtlich entstehen? Möglich sind z. B. Standards, Prozesse, Guidelines, Templates, Toolkits, Dokumentationen, Tool-Konfigurationen, Trainings, Pilotauswertungen oder ein Governance-Modell.", L));
+  push(listBullets("deliverables") + "\n");
+  if (L) push(wikiHint("Hinweis: Die Deliverables beschreiben, was konkret entsteht. Sie müssen nachvollziehbar auf das Zielbild und die angestrebte Wirkung einzahlen. Verbindliche Anforderungen an die Ergebnisse werden in den Akzeptanzkriterien beschrieben.", L));
+  panelEnd();
+
+  panelStart("🧪 Überprüfung, Pilotierung & Einführung", "#8a6ec6");
+  resp("Initial durch den Squad · Abstimmung mit Epic Owner und relevanten Stakeholdern");
+  push("*Validierung*");
+  if (L) push(wikiHint("Leitfrage: Wie werden Problemverständnis, Bedarf und Lösungsansatz überprüft? Welche Zielgruppen werden dabei einbezogen?", L));
+  push(bullets("validierung") + "\n");
+  push("*Pilot*");
+  if (L) push(wikiHint("Leitfrage: Mit welchem Team oder Bereich soll pilotiert werden? Welche Hypothesen und Erfolgskriterien werden im Pilot überprüft?", L));
+  if (v("pilotGeplant") === "Nein") {
+    push("* Es ist kein Pilot vorgesehen.\n");
+  } else {
+    push(labeled("Pilotpartner", "pilotPartner"));
+    push(labeled("Umfang und Dauer", "pilotUmfang"));
+    push(`* *Zu prüfende Hypothesen/Kriterien:* ${lines("pilotHypothesen").join(" ") || P}\n`);
+  }
+  push("*Rollout und Enablement*");
+  if (L) push(wikiHint("Leitfrage: Wie wird die Lösung eingeführt, kommuniziert und in der Anwendung unterstützt? Wie wird Feedback nach dem Rollout aufgenommen?", L));
+  push(`* *Einführung und Kommunikation:* ${lines("rolloutKommunikation").join(" ") || P}`);
+  push(`* *Training und Unterstützung:* ${lines("rolloutTraining").join(" ") || P}`);
+  push(`* *Feedback und Weiterentwicklung:* ${lines("rolloutFeedback").join(" ") || P}\n`);
+  push("*Übergang in den Regelbetrieb*");
+  if (L) push(wikiHint("Leitfrage: Wie wird die Veränderung in den Regelbetrieb überführt? Wer übernimmt anschließend Verantwortung für Pflege, Support und Weiterentwicklung?", L));
+  push(bullets("regelbetriebUebergang") + "\n");
+  panelEnd();
+
+  panelStart("⏱️ Zeitlicher Rahmen & Meilensteine", "#8a6ec6");
+  resp("Feste Rahmenbedingungen durch UX Ops · Realistische Planung gemeinsam mit dem Squad");
+  push("*Start und Ende*");
+  if (L) push(wikiHint("Leitfrage: Wann soll die Initiative starten und bis wann soll der vereinbarte Umfang abgeschlossen sein? Welche Termine sind verbindlich und welche stellen eine aktuelle Planung dar?", L));
+  push(labeled("Geplanter Start", "startDatum"));
+  push(labeled("Geplantes Ende", "endeDatum"));
+  push(labeled("Verbindliche zeitliche Vorgaben", "zeitVorgaben") + "\n");
+  push("*Meilensteine*");
+  if (L) push(wikiHint("Leitfrage: Welche fachlichen oder organisatorischen Zwischenziele strukturieren die Initiative? Nur relevante Meilensteine ausfüllen.", L));
+  const ms = [
+    ["Problemverständnis/Baseline", "ms_baseline"], ["Lösungskonzept", "ms_konzept"],
+    ["Pilotstart", "ms_pilotstart"], ["Pilotauswertung und Entscheidung", "ms_pilotauswertung"],
+    ["Rollout", "ms_rollout"], ["Übergabe in den Regelbetrieb", "ms_uebergabe"], ["Wirkungsmessung", "ms_wirkung"],
+  ].filter(([, k]) => !(v("pilotGeplant") === "Nein" && (k === "ms_pilotstart" || k === "ms_pilotauswertung")));
+  const msFilled = ms.filter(([, k]) => v(k));
+  (msFilled.length ? msFilled : ms).forEach(([lab, k]) => push(`* *${lab}:* ${v(k) || P}`));
+  push("");
+  panelEnd();
+  push("----\n");
+
+  /* 🟢 Verantwortung klären */
+  push("h2. 🟢 Verantwortung klären\n");
+  panelStart("💬 Team, Rollen & Governance", "#5ee198");
+  resp("Initial durch UX Ops · Umsetzungsteam und operative Rollen gemeinsam konkretisieren");
+  push("*Epic Owner*");
+  if (L) push(wikiHint("Leitfrage: Wer trägt die Verantwortung für Zielerreichung, Priorisierung, Fortschritt und Abstimmung der Initiative?", L));
+  push(bullets("epicOwner") + "\n");
+  push("*Umsetzungsteam*");
+  if (L) push(wikiHint("Leitfrage: Wer arbeitet aktiv an der Initiative und welche Rollen oder Kompetenzen werden benötigt?", L));
+  push(bullets("umsetzungsteam") + "\n");
+  push("*Auftraggeber und Entscheider*");
+  if (L) push(wikiHint("Leitfrage: Wer trifft Richtungs- und Priorisierungsentscheidungen, nimmt Ergebnisse ab und kann Eskalationen auflösen?", L));
+  push(bullets("auftraggeber") + "\n");
+  push("*Zielgruppenvertretung/Pilotpartner*");
+  if (L) push(wikiHint("Leitfrage: Welche Teams oder Personen vertreten die späteren Nutzerinnen und Nutzer und können in Validierung oder Pilotierung einbezogen werden?", L));
+  push(bullets("zielgruppenvertretung") + "\n");
+  push("*Stakeholder*");
+  if (L) push(wikiHint("Leitfrage: Welche weiteren Stakeholder müssen informiert, konsultiert oder an Entscheidungen beteiligt werden, z. B. UX, Produktteams, IT, Einkauf, Datenschutz, Betriebsrat, Legal oder Kommunikation?", L));
+  push(bullets("stakeholder") + "\n");
+  push("*Ownership im Regelbetrieb*");
+  if (L) push(wikiHint("Leitfrage: Wer verantwortet Pflege, Support und Weiterentwicklung nach Abschluss des Epics? Welche Entscheidungs-, Freigabe- und Pflegeprozesse gelten dann?", L));
+  push(labeled("Verantwortlich im Regelbetrieb", "rb_verantwortlich"));
+  push(labeled("Pflege und Support", "rb_pflege"));
+  push(labeled("Entscheidungen und Freigaben", "rb_entscheidungen") + "\n");
+  panelEnd();
+  push("----\n");
+
+  /* ⚪ Vorhandene Grundlagen nutzen */
+  push("h2. ⚪ Vorhandene Grundlagen nutzen\n");
+  panelStart("📥 Input & Vorarbeiten", "#ececec");
+  resp("Initial durch UX Ops · Laufend durch den Squad ergänzen");
+  push("*Vorhandene Erkenntnisse*");
+  if (L) push(wikiHint("Leitfrage: Welche Daten, Interviews, Retrospektiven, Feedbacks oder Reifegradanalysen liegen bereits vor? An welche Standards, Prozesse, Tools, Dokumentationen oder Erfahrungen kann angeknüpft werden?", L));
+  push(listBullets("vorarbeiten") + "\n");
+  panelEnd();
+  push("----\n");
+
+  /* 🟡 Unsicherheiten bearbeiten */
+  push("h2. 🟡 Unsicherheiten bearbeiten\n");
+  panelStart("🚨 Risiken & Gegenmaßnahmen", "#fff0b3");
+  resp("Bekannte Risiken initial durch UX Ops · Laufende Ergänzung durch alle Beteiligten");
+  push("*Risiken*");
+  if (L) push(wikiHint("Leitfrage: Was könnte die Zielerreichung, Umsetzung oder nachhaltige Nutzung gefährden? Zu betrachten sind z. B. Akzeptanz, Mandat, Ressourcen, Kompetenzen, Toolabhängigkeiten und ungeklärte Ownership.", L));
+  push(listBullets("risiken") + "\n");
+  push("*Gegenmaßnahmen*");
+  if (L) push(wikiHint("Leitfrage: Mit welchen präventiven oder korrigierenden Maßnahmen sollen die genannten Risiken reduziert werden? Wer ist jeweils verantwortlich?", L));
+  push(listBullets("gegenmassnahmen") + "\n");
+  panelEnd();
+
+  panelStart("❓ Offene Punkte, Annahmen & Abhängigkeiten", "#fff0b3");
+  resp("Gemeinsame und kontinuierliche Pflege durch Epic Owner und Squad");
+  if (L) push(wikiHint("Leitfrage: Was ist noch ungeklärt, welche Annahmen müssen validiert werden, wovon ist die Initiative abhängig und welche Entscheidungen werden benötigt? Jeder Eintrag erhält einen Owner, einen Status und möglichst einen Klärungstermin.", L));
+  push("||Typ||Beschreibung||Auswirkung||Klärung/Validierung||Owner||Status||Fällig bis||");
+  const ops = (S.values.offenePunkte || []).filter(o => String(o.beschreibung || "").trim());
+  const cell = s => String(s || "").trim().replace(/\|/g, "/").replace(/\n+/g, " ") || " ";
+  if (ops.length) {
+    ops.forEach(o => push(`|${cell(o.typ)}|${cell(o.beschreibung)}|${cell(o.auswirkung)}|${cell(o.klaerung)}|${cell(o.owner)}|${cell(o.status)}|${cell(o.faellig)}|`));
+  } else {
+    push(`|Offener Punkt|${P.replace(/_/g, "")}| | | |Offen| |`);
+  }
+  push("");
+  panelEnd();
+
+  return out.join("\n");
+}
+
+function buildAkText() {
+  const arr = (S.values.akzeptanzkriterien || []).map(x => String(x).trim()).filter(Boolean);
+  if (!arr.length) return "(Noch keine Akzeptanzkriterien erfasst)";
+  return "Outcome-Akzeptanzkriterien\n" + arr.map(a => "[ ] " + a).join("\n");
+}
+
+function renderExport() {
+  // Vollständigkeits-Check
+  const ul = document.getElementById("checkList");
+  ul.innerHTML = "";
+  requiredFields().forEach(f => {
+    const li = document.createElement("li");
+    const miss = isEmpty(S.values[f.key]);
+    li.className = miss ? "miss" : "ok";
+    li.innerHTML = (miss ? "⚠️ " : "✓ ") + f.label + (miss ? " – fehlt noch" : "");
+    if (miss) li.addEventListener("click", () => {
+      const stepN = (PANELS.find(p => p.id === f.panel) || {}).step || 1;
+      gotoStep(stepN);
+      setTimeout(() => {
+        const el = document.querySelector(`.field[data-key="${f.key}"]`);
+        if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1300); }
+      }, 250);
+    });
+    ul.appendChild(li);
+  });
+
+  document.getElementById("out-titel").textContent = v("titel") || "(Titel fehlt)";
+  document.getElementById("out-epicName").textContent = v("epicName") || "(Epic Name fehlt)";
+  document.getElementById("out-desc").textContent = buildWikiDescription(document.getElementById("toggleLeitfragen").checked);
+  document.getElementById("out-ak").textContent = buildAkText();
+}
+document.getElementById("toggleLeitfragen").addEventListener("change", renderExport);
+
+/* Copy buttons */
+document.querySelectorAll("[data-copy]").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    let text = "";
+    switch (btn.dataset.copy) {
+      case "titel": text = v("titel"); break;
+      case "epicName": text = v("epicName"); break;
+      case "desc": text = buildWikiDescription(document.getElementById("toggleLeitfragen").checked); break;
+      case "ak": text = buildAkText(); break;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      const old = btn.textContent;
+      btn.textContent = "✓ Kopiert!";
+      setTimeout(() => { btn.textContent = old; }, 1600);
+    } catch (e) {
+      // Fallback
+      const ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); ta.remove();
+      btn.textContent = "✓ Kopiert!";
+      setTimeout(() => { btn.textContent = btn.dataset.copy === "desc" ? "📋 Beschreibung kopieren" : "📋 Kopieren"; }, 1600);
+    }
+  });
+});
+
+/* ---------------- Init ---------------- */
+renderPanels();
+refreshMeta();
+gotoStep(S.step);
+window.addEventListener("beforeunload", save);
+</script>
+</body>
+</html>
