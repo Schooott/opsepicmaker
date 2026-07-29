@@ -923,38 +923,29 @@ function stopRecognition() {
 function escapeHtml(s) { return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
 /* ---------------- KI-Vorbefüllung ---------------- */
-function buildSchema() {
-  const props = {};
+/* Kompakte Feldliste für den Prompt (statt JSON-Schema — die kompilierte
+   Grammatik mit ~50 Pflichtfeldern war der API zu groß, HTTP 400). */
+function buildFieldSpec() {
+  const rows = [];
   FIELDS.forEach(f => {
     if (f.type === "grouplabel") return;
-    if (f.type === "check") props[f.key] = { type: "boolean", description: f.ai || f.label };
-    else if (f.type === "list") props[f.key] = { type: "array", items: { type: "string" }, description: f.ai || f.label };
-    else if (f.type === "optable") props[f.key] = {
-      type: "array", description: f.ai || f.label,
-      items: {
-        type: "object",
-        properties: {
-          typ: { type: "string", enum: OP_TYPEN },
-          beschreibung: { type: "string" },
-          auswirkung: { type: "string" },
-          klaerung: { type: "string" },
-          owner: { type: "string" },
-          faellig: { type: "string" },
-        },
-        required: ["typ", "beschreibung", "auswirkung", "klaerung", "owner", "faellig"],
-        additionalProperties: false,
-      },
-    };
-    else if (f.type === "select") props[f.key] = { type: "string", description: (f.ai || f.label) + " Erlaubte Werte: " + f.options.join(", ") + " (oder leer)." };
-    else props[f.key] = { type: "string", description: f.ai || f.label };
+    let typ = "string";
+    if (f.type === "check") typ = "boolean";
+    else if (f.type === "list") typ = "array of strings";
+    else if (f.type === "optable") typ = 'array of {typ, beschreibung, auswirkung, klaerung, owner, faellig} — typ ∈ [' + OP_TYPEN.join(" | ") + "]";
+    else if (f.type === "select") typ = 'string ∈ ["' + f.options.join('" | "') + '" | ""]';
+    rows.push(`- ${f.key} (${typ}): ${f.ai || f.label}`);
   });
-  props.rueckfragen = { type: "array", items: { type: "string" }, description: "3–6 wichtigste Rückfragen, die vor Beauftragung des Epics geklärt werden sollten." };
-  return {
-    type: "object",
-    properties: props,
-    required: Object.keys(props),
-    additionalProperties: false,
-  };
+  rows.push("- rueckfragen (array of strings): 3–6 wichtigste Rückfragen, die vor Beauftragung des Epics geklärt werden sollten.");
+  return rows.join("\n");
+}
+
+/* JSON aus der Modellantwort extrahieren (tolerant gegenüber ```-Fences o. Ä.) */
+function extractJson(text) {
+  let t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const start = t.indexOf("{"), end = t.lastIndexOf("}");
+  if (start === -1 || end <= start) throw new Error("Kein JSON in der Antwort gefunden.");
+  return JSON.parse(t.slice(start, end + 1));
 }
 
 const SYSTEM_PROMPT = `Du bist Assistenz eines UX-Ops-Teams und hilfst, Jira-Epics für UX-Ops-Initiativen strukturiert anzulegen (Bereiche: Research Ops, Design Ops, Governance, Tooling, Enablement).
@@ -962,7 +953,9 @@ const SYSTEM_PROMPT = `Du bist Assistenz eines UX-Ops-Teams und hilfst, Jira-Epi
 Du erhältst eine freie Beschreibung, Notizen oder ein Gesprächstranskript. Extrahiere daraus die Inhalte für das Epic-Template und ergänze sinnvolle, klar als Vorschlag taugliche Entwürfe.
 
 Regeln:
-- Antworte ausschließlich auf Deutsch, im JSON-Format gemäß Schema.
+- Antworte AUSSCHLIESSLICH mit einem einzigen validen JSON-Objekt — kein Markdown, keine Code-Fences, kein Text davor oder danach.
+- Das JSON-Objekt enthält genau die Schlüssel aus der Feldliste in der Nachricht. Unbekanntes bleibt "" bzw. [].
+- Alle Inhalte auf Deutsch.
 - Fakten (Namen, Daten, Teams, Termine) NUR übernehmen, wenn sie im Input genannt oder eindeutig ableitbar sind. Niemals Personen, Daten oder Termine erfinden — solche Felder leer ("") lassen.
 - Inhaltliche Felder (Ausgangslage, Ziel, Scope, Deliverables, Risiken, Akzeptanzkriterien, Erfolgskriterien) dürfen als gut begründete Vorschläge formuliert werden, die zum Input passen.
 - Mehrzeilige Felder: eine Aussage pro Zeile, ohne Aufzählungszeichen (kein "-", kein "*").
@@ -999,10 +992,9 @@ document.getElementById("btnAiFill").addEventListener("click", async () => {
         model: document.getElementById("modelSelect").value,
         max_tokens: 12000,
         system: SYSTEM_PROMPT,
-        output_config: { format: { type: "json_schema", schema: buildSchema() } },
         messages: [{
           role: "user",
-          content: `Heutiges Datum: ${today}\n\nEingabe (Beschreibung/Notizen/Transkript):\n"""\n${idea}\n"""`,
+          content: `Heutiges Datum: ${today}\n\nFeldliste (JSON-Schlüssel, Typ, Bedeutung):\n${buildFieldSpec()}\n\nEingabe (Beschreibung/Notizen/Transkript):\n"""\n${idea}\n"""\n\nAntworte jetzt nur mit dem JSON-Objekt.`,
         }],
       }),
     });
@@ -1015,7 +1007,7 @@ document.getElementById("btnAiFill").addEventListener("click", async () => {
     if (data.stop_reason === "refusal") throw new Error("Die Anfrage wurde vom Modell abgelehnt.");
     const textBlock = (data.content || []).find(b => b.type === "text");
     if (!textBlock) throw new Error("Keine verwertbare Antwort erhalten.");
-    const result = JSON.parse(textBlock.text);
+    const result = extractJson(textBlock.text);
     applyAiResult(result);
     const filled = FIELDS.filter(f => f.type !== "grouplabel" && S.source[f.key] === "ai" && !isEmpty(S.values[f.key])).length;
     statusEl.className = "ai-status ok";
