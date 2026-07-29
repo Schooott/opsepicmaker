@@ -105,6 +105,19 @@
     padding: 7px 14px; cursor: pointer; font-size: 13px; color: var(--gray); font-weight: 500;
   }
   .btn-add:hover { border-color: var(--blue); color: var(--blue); }
+  /* date fields: text input + calendar button + hidden native picker */
+  .date-wrap { position: relative; display: flex; gap: 8px; }
+  .date-wrap input[type=text] { flex: 1; min-width: 0; }
+  .btn-cal {
+    border: 1.5px solid #c1c7d0; background: #fff; border-radius: 7px; width: 38px;
+    cursor: pointer; font-size: 15px; flex-shrink: 0; padding: 0;
+  }
+  .btn-cal:hover { border-color: var(--blue); }
+  .op-table .btn-cal { width: 30px; font-size: 13px; border-radius: 6px; }
+  .date-hidden {
+    position: absolute; left: 0; bottom: 0; width: 1px; height: 1px;
+    opacity: 0; pointer-events: none; border: 0; padding: 0;
+  }
   /* table for offene punkte */
   .op-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .op-table th { text-align: left; padding: 6px 6px; color: var(--gray); font-size: 12px; border-bottom: 2px solid #ebecf0; }
@@ -417,7 +430,7 @@ const FIELDS = [
     hint: "Wie werden die fehlenden Basisdaten erhoben?", ai: "Methode der geplanten Baseline-Erhebung." },
   { key: "erhebungVerantwortlich", panel: "erfolg", type: "text", label: "Erhebung – Verantwortlich", showIf: v => v.basisdatenFehlen,
     ai: "Verantwortliche Person/Rolle für die Erhebung." },
-  { key: "erhebungBis", panel: "erfolg", type: "text", label: "Erhebung bis (Datum)", showIf: v => v.basisdatenFehlen,
+  { key: "erhebungBis", panel: "erfolg", type: "date", label: "Erhebung bis (Datum)", showIf: v => v.basisdatenFehlen,
     ai: "Zieldatum der Erhebung (nur wenn genannt)." },
   { key: "ekIntro", panel: "erfolg", type: "grouplabel", label: "Erfolgskriterien",
     hint: "Leitfrage: An welchen konkreten Veränderungen erkennen wir den Erfolg? Nur relevante Dimensionen ausfüllen – möglichst mit Kennzahl, Zielwert und Messzeitpunkt." },
@@ -435,7 +448,7 @@ const FIELDS = [
     hint: "Leitfrage: Mit welchen Daten oder Methoden wird die Wirkung gemessen? Wann und durch wen?" },
   { key: "messDatenquelle", panel: "erfolg", type: "text", label: "Datenquelle / Methode",
     hint: "z. B. Analytics, Jira-Daten, Befragung, Interviews, Audit oder Review.", ai: "Datenquelle/Messmethode." },
-  { key: "messZeitpunkt", panel: "erfolg", type: "text", label: "Messzeitpunkt", ai: "Messzeitpunkt/-zeitraum (nur wenn genannt)." },
+  { key: "messZeitpunkt", panel: "erfolg", type: "date", label: "Messzeitpunkt", ai: "Messzeitpunkt/-zeitraum (nur wenn genannt)." },
   { key: "messVerantwortlich", panel: "erfolg", type: "text", label: "Verantwortlich für Messung", ai: "Verantwortliche Person/Rolle für die Messung." },
   // --- Deliverables
   { key: "deliverables", panel: "deliv", type: "list", req: true, label: "Geplante Ergebnisse",
@@ -467,21 +480,21 @@ const FIELDS = [
     hint: "Leitfrage: Wie wird die Veränderung in den Regelbetrieb überführt? Wer übernimmt anschließend Verantwortung?",
     ai: "Überführung in den Regelbetrieb." },
   // --- Zeit
-  { key: "startDatum", panel: "zeit", type: "text", label: "Geplanter Start",
+  { key: "startDatum", panel: "zeit", type: "date", label: "Geplanter Start",
     hint: "Datum, z. B. 01.10.2026.", ai: "Startdatum (nur wenn genannt, Format TT.MM.JJJJ oder Quartal)." },
-  { key: "endeDatum", panel: "zeit", type: "text", label: "Geplantes Ende",
+  { key: "endeDatum", panel: "zeit", type: "date", label: "Geplantes Ende",
     hint: "Datum bzw. Quartal.", ai: "Enddatum/Quartal (nur wenn genannt)." },
   { key: "zeitVorgaben", panel: "zeit", type: "text", label: "Verbindliche zeitliche Vorgaben",
     hint: "Nur falls vorhanden.", ai: "Verbindliche Termine (nur wenn genannt)." },
   { key: "msIntro", panel: "zeit", type: "grouplabel", label: "Meilensteine",
     hint: "Leitfrage: Welche fachlichen oder organisatorischen Zwischenziele strukturieren die Initiative? Nur relevante Meilensteine ausfüllen." },
-  { key: "ms_baseline", panel: "zeit", type: "text", label: "Problemverständnis / Baseline", ai: "Datum (nur wenn genannt)." },
-  { key: "ms_konzept", panel: "zeit", type: "text", label: "Lösungskonzept", ai: "Datum (nur wenn genannt)." },
-  { key: "ms_pilotstart", panel: "zeit", type: "text", label: "Pilotstart", showIf: v => v.pilotGeplant !== "Nein", ai: "Datum (nur wenn genannt)." },
-  { key: "ms_pilotauswertung", panel: "zeit", type: "text", label: "Pilotauswertung und Entscheidung", showIf: v => v.pilotGeplant !== "Nein", ai: "Datum (nur wenn genannt)." },
-  { key: "ms_rollout", panel: "zeit", type: "text", label: "Rollout", ai: "Datum (nur wenn genannt)." },
-  { key: "ms_uebergabe", panel: "zeit", type: "text", label: "Übergabe in den Regelbetrieb", ai: "Datum (nur wenn genannt)." },
-  { key: "ms_wirkung", panel: "zeit", type: "text", label: "Wirkungsmessung", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_baseline", panel: "zeit", type: "date", label: "Problemverständnis / Baseline", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_konzept", panel: "zeit", type: "date", label: "Lösungskonzept", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_pilotstart", panel: "zeit", type: "date", label: "Pilotstart", showIf: v => v.pilotGeplant !== "Nein", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_pilotauswertung", panel: "zeit", type: "date", label: "Pilotauswertung und Entscheidung", showIf: v => v.pilotGeplant !== "Nein", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_rollout", panel: "zeit", type: "date", label: "Rollout", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_uebergabe", panel: "zeit", type: "date", label: "Übergabe in den Regelbetrieb", ai: "Datum (nur wenn genannt)." },
+  { key: "ms_wirkung", panel: "zeit", type: "date", label: "Wirkungsmessung", ai: "Datum (nur wenn genannt)." },
   // --- Team
   { key: "epicOwner", panel: "team", type: "text", req: true, label: "Epic Owner",
     hint: "Leitfrage: Wer trägt die Verantwortung für Zielerreichung, Priorisierung, Fortschritt und Abstimmung?",
@@ -629,6 +642,16 @@ function renderField(f) {
     const inp = wrap.querySelector("input");
     inp.value = S.values[f.key] || "";
     inp.addEventListener("input", () => setValue(f.key, inp.value, "user"));
+  } else if (f.type === "date") {
+    wrap.innerHTML = label + hint + `<div class="date-wrap">
+      <input type="text" data-input="${f.key}" placeholder="TT.MM.JJJJ oder Freitext, z. B. Q4 2026">
+      <button type="button" class="btn-cal" title="Datum wählen">📅</button>
+      <input type="date" class="date-hidden" tabindex="-1" aria-hidden="true">
+    </div>`;
+    const inp = wrap.querySelector("input[type=text]");
+    inp.value = S.values[f.key] || "";
+    inp.addEventListener("input", () => setValue(f.key, inp.value, "user"));
+    attachDatePicker(wrap.querySelector(".date-wrap"), inp, val => setValue(f.key, val, "user"));
   } else if (f.type === "textarea") {
     wrap.innerHTML = label + hint + `<textarea data-input="${f.key}"></textarea>`;
     const inp = wrap.querySelector("textarea");
@@ -658,7 +681,7 @@ function renderField(f) {
   } else if (f.type === "optable") {
     wrap.innerHTML = label + hint + `<div class="op-wrap"><table class="op-table"><thead><tr>
       <th style="min-width:110px">Typ</th><th style="min-width:160px">Beschreibung</th><th style="min-width:140px">Auswirkung</th>
-      <th style="min-width:140px">Klärung/Validierung</th><th style="min-width:90px">Owner</th><th style="min-width:90px">Status</th><th style="min-width:90px">Fällig bis</th><th></th>
+      <th style="min-width:140px">Klärung/Validierung</th><th style="min-width:90px">Owner</th><th style="min-width:90px">Status</th><th style="min-width:135px">Fällig bis</th><th></th>
     </tr></thead><tbody data-optable="${f.key}"></tbody></table></div>
     <button class="btn-add" type="button" style="margin-top:8px;">+ Eintrag hinzufügen</button>`;
     wrap.querySelector(".btn-add").addEventListener("click", () => {
@@ -669,6 +692,31 @@ function renderField(f) {
     setTimeout(() => renderOpTable(f.key), 0);
   }
   return wrap;
+}
+
+/* ---- Datepicker-Hybrid: Textfeld + nativer Kalender-Picker ---- */
+function deToIso(s) {
+  const m = String(s || "").trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : "";
+}
+function isoToDe(s) {
+  const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
+}
+function attachDatePicker(wrapEl, textInput, onPick) {
+  const btn = wrapEl.querySelector(".btn-cal");
+  const dateInp = wrapEl.querySelector("input[type=date]");
+  btn.addEventListener("click", () => {
+    dateInp.value = deToIso(textInput.value);
+    if (typeof dateInp.showPicker === "function") {
+      try { dateInp.showPicker(); return; } catch (e) {}
+    }
+    dateInp.focus(); dateInp.click();
+  });
+  dateInp.addEventListener("change", () => {
+    const de = isoToDe(dateInp.value);
+    if (de) { textInput.value = de; onPick(de); }
+  });
 }
 
 function autogrow(ta) {
@@ -716,13 +764,24 @@ function renderOpTable(key) {
       inp.addEventListener("input", () => { row[name] = inp.value; S.source[key] = "user"; save(); });
       const td = document.createElement("td"); td.appendChild(inp); return td;
     };
+    const dateCell = name => {
+      const td = document.createElement("td");
+      const w = document.createElement("div");
+      w.className = "date-wrap";
+      w.innerHTML = `<input type="text" placeholder="Datum"><button type="button" class="btn-cal" title="Datum wählen">📅</button><input type="date" class="date-hidden" tabindex="-1" aria-hidden="true">`;
+      const inp = w.querySelector("input[type=text]");
+      inp.value = row[name] || "";
+      inp.addEventListener("input", () => { row[name] = inp.value; S.source[key] = "user"; save(); });
+      attachDatePicker(w, inp, val => { row[name] = val; S.source[key] = "user"; save(); });
+      td.appendChild(w); return td;
+    };
     tr.appendChild(sel("typ", OP_TYPEN));
     tr.appendChild(txt("beschreibung"));
     tr.appendChild(txt("auswirkung"));
     tr.appendChild(txt("klaerung"));
     tr.appendChild(txt("owner"));
     tr.appendChild(sel("status", OP_STATUS));
-    tr.appendChild(txt("faellig", "Datum"));
+    tr.appendChild(dateCell("faellig"));
     const tdDel = document.createElement("td");
     const del = document.createElement("button"); del.className = "btn-icon"; del.type = "button"; del.textContent = "✕";
     del.addEventListener("click", () => { arr.splice(i, 1); S.source[key] = "user"; renderOpTable(key); save(); });
