@@ -186,7 +186,7 @@
 
 <header>
   <h1>🧭 UX Ops Epic-Wizard</h1>
-  <div class="sub">Epics für OPS-Initiativen schnell &amp; strukturiert anlegen · Template UXPHX-880 · R+V UX KH</div>
+  <div class="sub">Epics für OPS-Initiativen schnell &amp; strukturiert anlegen</div>
 </header>
 
 <nav class="stepper" id="stepper"></nav>
@@ -289,7 +289,7 @@
 <!-- ============ STEP 5: EXPORT ============ -->
 <section class="step-view" data-step="5">
   <h2 class="step-title">📋 Prüfen &amp; nach Jira kopieren</h2>
-  <p class="step-desc">Alles kontrollieren, dann die Inhalte in das neue Jira-Epic (Vorlage UXPHX-880) einfügen.</p>
+  <p class="step-desc">Alles kontrollieren, dann die Inhalte in das neue Jira-Epic einfügen.</p>
 
   <div class="export-check">
     <b>Vollständigkeit wichtiger Felder</b>
@@ -336,7 +336,7 @@
 "use strict";
 /* =====================================================================
    UX Ops Epic-Wizard — Single File App
-   Template: UXPHX-880 "Epic für OPS-Initiativen" (Jira DC, jira.ruv.de)
+   Template: "Epic für OPS-Initiativen" (Jira Server/Data Center)
    ===================================================================== */
 
 const LS_KEY = "epicwizard.state.v1";
@@ -957,7 +957,7 @@ function buildSchema() {
   };
 }
 
-const SYSTEM_PROMPT = `Du bist Assistenz des UX-Ops-Teams einer Versicherung (R+V) und hilfst, Jira-Epics für UX-Ops-Initiativen strukturiert anzulegen (Bereiche: Research Ops, Design Ops, Governance, Tooling, Enablement).
+const SYSTEM_PROMPT = `Du bist Assistenz eines UX-Ops-Teams und hilfst, Jira-Epics für UX-Ops-Initiativen strukturiert anzulegen (Bereiche: Research Ops, Design Ops, Governance, Tooling, Enablement).
 
 Du erhältst eine freie Beschreibung, Notizen oder ein Gesprächstranskript. Extrahiere daraus die Inhalte für das Epic-Template und ergänze sinnvolle, klar als Vorschlag taugliche Entwürfe.
 
