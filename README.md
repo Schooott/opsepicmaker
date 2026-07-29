@@ -6,7 +6,7 @@ Paste or dictate a rough idea, let AI pre-fill the epic template fields, review 
 
 ## Usage
 
-Open `epic-wizard.html` in Chrome or Edge. No installation, no build step.
+Open `index.html` in Chrome or Edge. No installation, no build step.
 
 - AI pre-fill requires an Anthropic API key (stored locally in the browser only).
 - Voice dictation and audio recording use the browser's built-in speech recognition and microphone APIs.
