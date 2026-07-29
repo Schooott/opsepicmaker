@@ -1,11 +1,8 @@
-// KI-Vorbefüllung über die Anthropic Messages API.
-// Produktion: über die Supabase Edge Function "ai-prefill" (der API-Key liegt
-// als Server-Secret und erreicht nie den Browser). Demo-Modus: direkt aus dem
-// Browser mit lokal eingegebenem Key.
+// KI-Vorbefüllung über die Supabase Edge Function "ai-prefill".
+// Der Anthropic-API-Key liegt ausschließlich als Server-Secret bei Supabase
+// und erreicht nie den Browser.
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/config"
 import { FIELDS, OP_TYPEN, type OpRow } from "./fields"
-
-export type AiAuth = { mode: "edge"; token: string } | { mode: "direct"; apiKey: string }
 
 export const AI_MODELS = [
   { value: "claude-haiku-4-5", label: "Claude Haiku 4.5 – günstig & schnell (empfohlen)" },
@@ -57,7 +54,7 @@ function extractJson(text: string): AiResult {
   return JSON.parse(t.slice(start, end + 1)) as AiResult
 }
 
-export async function aiPrefill(auth: AiAuth, model: string, idea: string): Promise<AiResult> {
+export async function aiPrefill(token: string, model: string, idea: string): Promise<AiResult> {
   const today = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
   const payload = {
     model,
@@ -70,26 +67,15 @@ export async function aiPrefill(auth: AiAuth, model: string, idea: string): Prom
       },
     ],
   }
-  const [url, headers]: [string, Record<string, string>] =
-    auth.mode === "edge"
-      ? [
-          `${SUPABASE_URL}/functions/v1/ai-prefill`,
-          {
-            "content-type": "application/json",
-            authorization: `Bearer ${auth.token}`,
-            apikey: SUPABASE_ANON_KEY,
-          },
-        ]
-      : [
-          "https://api.anthropic.com/v1/messages",
-          {
-            "content-type": "application/json",
-            "x-api-key": auth.apiKey,
-            "anthropic-version": "2023-06-01",
-            "anthropic-dangerous-direct-browser-access": "true",
-          },
-        ]
-  const resp = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) })
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/ai-prefill`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+      apikey: SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify(payload),
+  })
   if (!resp.ok) {
     let msg = `HTTP ${resp.status}`
     try {
