@@ -1,7 +1,11 @@
-// KI-Vorbefüllung über die Anthropic Messages API (direkt aus dem Browser).
-// Die Feldliste wandert kompakt in den Prompt; die Antwort ist ein einfaches
-// JSON-Objekt, das tolerant geparst wird.
+// KI-Vorbefüllung über die Anthropic Messages API.
+// Produktion: über die Supabase Edge Function "ai-prefill" (der API-Key liegt
+// als Server-Secret und erreicht nie den Browser). Demo-Modus: direkt aus dem
+// Browser mit lokal eingegebenem Key.
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "@/config"
 import { FIELDS, OP_TYPEN, type OpRow } from "./fields"
+
+export type AiAuth = { mode: "edge"; token: string } | { mode: "direct"; apiKey: string }
 
 export const AI_MODELS = [
   { value: "claude-haiku-4-5", label: "Claude Haiku 4.5 – günstig & schnell (empfohlen)" },
@@ -53,33 +57,45 @@ function extractJson(text: string): AiResult {
   return JSON.parse(t.slice(start, end + 1)) as AiResult
 }
 
-export async function aiPrefill(apiKey: string, model: string, idea: string): Promise<AiResult> {
+export async function aiPrefill(auth: AiAuth, model: string, idea: string): Promise<AiResult> {
   const today = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 12000,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `Heutiges Datum: ${today}\n\nFeldliste (JSON-Schlüssel, Typ, Bedeutung):\n${buildFieldSpec()}\n\nEingabe (Beschreibung/Notizen/Transkript):\n"""\n${idea}\n"""\n\nAntworte jetzt nur mit dem JSON-Objekt.`,
-        },
-      ],
-    }),
-  })
+  const payload = {
+    model,
+    max_tokens: 12000,
+    system: SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: `Heutiges Datum: ${today}\n\nFeldliste (JSON-Schlüssel, Typ, Bedeutung):\n${buildFieldSpec()}\n\nEingabe (Beschreibung/Notizen/Transkript):\n"""\n${idea}\n"""\n\nAntworte jetzt nur mit dem JSON-Objekt.`,
+      },
+    ],
+  }
+  const [url, headers]: [string, Record<string, string>] =
+    auth.mode === "edge"
+      ? [
+          `${SUPABASE_URL}/functions/v1/ai-prefill`,
+          {
+            "content-type": "application/json",
+            authorization: `Bearer ${auth.token}`,
+            apikey: SUPABASE_ANON_KEY,
+          },
+        ]
+      : [
+          "https://api.anthropic.com/v1/messages",
+          {
+            "content-type": "application/json",
+            "x-api-key": auth.apiKey,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true",
+          },
+        ]
+  const resp = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) })
   if (!resp.ok) {
     let msg = `HTTP ${resp.status}`
     try {
       const err = await resp.json()
-      msg += " – " + (err.error?.message || JSON.stringify(err))
+      const detail = typeof err.error === "string" ? err.error : err.error?.message
+      msg += " – " + (detail || JSON.stringify(err))
     } catch { /* ignore */ }
     throw new Error(msg)
   }

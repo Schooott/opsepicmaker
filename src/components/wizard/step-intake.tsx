@@ -2,7 +2,8 @@
 import { useState } from "react"
 import { CircleHelpIcon, LightbulbIcon, MicIcon, SettingsIcon, SparklesIcon, SquareIcon } from "lucide-react"
 
-import { AI_MODELS, aiPrefill, type AiResult } from "@/lib/ai"
+import { AI_MODELS, aiPrefill, type AiAuth, type AiResult } from "@/lib/ai"
+import type { Backend } from "@/lib/backend"
 import { useRecorder } from "@/hooks/use-recorder"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -16,12 +17,14 @@ import { Textarea } from "@/components/ui/textarea"
 const LS_APIKEY = "epicwizard.apikey"
 
 type Props = {
+  backend: Backend
   idea: string
   onIdeaChange: (idea: string) => void
   onAiResult: (result: AiResult) => number
 }
 
-export function StepIntake({ idea, onIdeaChange, onAiResult }: Props) {
+export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
+  const keylessMode = backend.kind === "supabase"
   const [apiKey, setApiKey] = useState(() => localStorage.getItem(LS_APIKEY) ?? "")
   const [model, setModel] = useState(AI_MODELS[0].value)
   const [loading, setLoading] = useState(false)
@@ -41,7 +44,7 @@ export function StepIntake({ idea, onIdeaChange, onAiResult }: Props) {
     setError("")
     setOkMessage("")
     setRueckfragen([])
-    if (!apiKey.trim()) {
+    if (!keylessMode && !apiKey.trim()) {
       setError("Bitte zuerst den Anthropic API-Key eintragen.")
       return
     }
@@ -51,7 +54,15 @@ export function StepIntake({ idea, onIdeaChange, onAiResult }: Props) {
     }
     setLoading(true)
     try {
-      const result = await aiPrefill(apiKey.trim(), model, idea.trim())
+      let auth: AiAuth
+      if (keylessMode) {
+        const token = await backend.getAccessToken()
+        if (!token) throw new Error("Keine gültige Sitzung – bitte neu anmelden.")
+        auth = { mode: "edge", token }
+      } else {
+        auth = { mode: "direct", apiKey: apiKey.trim() }
+      }
+      const result = await aiPrefill(auth, model, idea.trim())
       const filled = onAiResult(result)
       setOkMessage(`${filled} Felder vorbefüllt (als „KI-Vorschlag“ markiert). Bitte in den nächsten Schritten prüfen und anpassen.`)
       if (Array.isArray(result.rueckfragen)) setRueckfragen(result.rueckfragen.map(String))
@@ -76,25 +87,29 @@ export function StepIntake({ idea, onIdeaChange, onAiResult }: Props) {
             <SettingsIcon className="text-muted-foreground" /> KI-Einstellungen
           </CardTitle>
           <CardDescription>
-            Der API-Key wird ausschließlich lokal in diesem Browser gespeichert und nur direkt an api.anthropic.com gesendet.
+            {keylessMode
+              ? "Der API-Key ist zentral und sicher im Backend hinterlegt – hier ist nichts einzutragen."
+              : "Der API-Key wird ausschließlich lokal in diesem Browser gespeichert und nur direkt an api.anthropic.com gesendet."}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <FieldGroup className="gap-4 sm:grid sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="apiKey">Anthropic API-Key</FieldLabel>
-              <Input
-                id="apiKey"
-                type="password"
-                placeholder="sk-ant-..."
-                autoComplete="off"
-                value={apiKey}
-                onChange={e => {
-                  setApiKey(e.target.value)
-                  localStorage.setItem(LS_APIKEY, e.target.value.trim())
-                }}
-              />
-            </Field>
+            {!keylessMode && (
+              <Field>
+                <FieldLabel htmlFor="apiKey">Anthropic API-Key</FieldLabel>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  placeholder="sk-ant-..."
+                  autoComplete="off"
+                  value={apiKey}
+                  onChange={e => {
+                    setApiKey(e.target.value)
+                    localStorage.setItem(LS_APIKEY, e.target.value.trim())
+                  }}
+                />
+              </Field>
+            )}
             <Field>
               <FieldLabel htmlFor="model">Modell</FieldLabel>
               <Select items={modelItems} value={model} onValueChange={v => setModel(String(v))}>

@@ -5,7 +5,7 @@ import { CompassIcon, LogInIcon } from "lucide-react"
 import { DEMO_LOGIN, type Backend, type Profile } from "@/lib/backend"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
@@ -16,7 +16,7 @@ type Props = {
 }
 
 export function LoginView({ backend, onLogin }: Props) {
-  const [email, setEmail] = useState("")
+  const [login, setLogin] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -26,7 +26,7 @@ export function LoginView({ backend, onLogin }: Props) {
     setError("")
     setLoading(true)
     try {
-      onLogin(await backend.signIn(email, password))
+      onLogin(await backend.signIn(login, password))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -44,28 +44,26 @@ export function LoginView({ backend, onLogin }: Props) {
           <Alert>
             <AlertTitle>Demo-Modus (kein Backend konfiguriert)</AlertTitle>
             <AlertDescription>
-              Daten werden nur lokal in diesem Browser gespeichert. Anmeldung: {DEMO_LOGIN.email} / {DEMO_LOGIN.password}
+              Daten werden nur lokal in diesem Browser gespeichert. Anmeldung: {DEMO_LOGIN.username} / {DEMO_LOGIN.password}
             </AlertDescription>
           </Alert>
         )}
         <Card>
           <CardHeader>
             <CardTitle>Anmelden</CardTitle>
-            <CardDescription>Mit deinem Team-Konto anmelden, um Epics zu erstellen und zu kommentieren.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit}>
               <FieldGroup>
                 <Field data-invalid={!!error || undefined}>
-                  <FieldLabel htmlFor="email">E-Mail</FieldLabel>
+                  <FieldLabel htmlFor="login">Benutzername</FieldLabel>
                   <Input
-                    id="email"
-                    type="email"
+                    id="login"
                     autoComplete="username"
                     required
-                    value={email}
+                    value={login}
                     aria-invalid={!!error || undefined}
-                    onChange={e => setEmail(e.target.value)}
+                    onChange={e => setLogin(e.target.value)}
                   />
                 </Field>
                 <Field data-invalid={!!error || undefined}>
@@ -86,9 +84,6 @@ export function LoginView({ backend, onLogin }: Props) {
                     {loading ? <Spinner data-icon="inline-start" /> : <LogInIcon data-icon="inline-start" />}
                     Anmelden
                   </Button>
-                  <FieldDescription>
-                    Konten werden von einer Admin-Person angelegt – es gibt keine Selbstregistrierung.
-                  </FieldDescription>
                 </Field>
               </FieldGroup>
             </form>

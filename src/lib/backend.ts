@@ -2,8 +2,19 @@
 // lokalen Demo-Modus (localStorage), der aktiv ist, solange in config.ts
 // keine Supabase-Zugangsdaten hinterlegt sind.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
-import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigured } from "@/config"
+import { SUPABASE_ANON_KEY, SUPABASE_URL, USERNAME_EMAIL_DOMAIN, supabaseConfigured } from "@/config"
 import type { Sources, Values } from "./fields"
+
+// Benutzername <-> interne E-Mail (Supabase Auth ist E-Mail-basiert).
+// Eingaben mit "@" werden unverändert als E-Mail behandelt.
+export function loginToEmail(login: string): string {
+  const t = login.trim()
+  return t.includes("@") ? t : `${t.toLowerCase()}@${USERNAME_EMAIL_DOMAIN}`
+}
+export function emailToUsername(email: string): string {
+  const suffix = "@" + USERNAME_EMAIL_DOMAIN
+  return email.endsWith(suffix) ? email.slice(0, -suffix.length) : email
+}
 
 export type Profile = {
   id: string
@@ -40,8 +51,11 @@ export type CommentRec = {
 export interface Backend {
   kind: "supabase" | "demo"
   restoreSession(): Promise<Profile | null>
-  signIn(email: string, password: string): Promise<Profile>
+  /** login = Benutzername oder vollständige E-Mail */
+  signIn(login: string, password: string): Promise<Profile>
   signOut(): Promise<void>
+  /** Access-Token der aktuellen Session (für Edge-Function-Aufrufe); null im Demo-Modus */
+  getAccessToken(): Promise<string | null>
   listEpics(): Promise<EpicMeta[]>
   getEpic(id: string): Promise<EpicRecord>
   createEpic(title: string, data: EpicData): Promise<string>
@@ -51,7 +65,8 @@ export interface Backend {
   addComment(epicId: string, body: string): Promise<void>
   deleteComment(id: string): Promise<void>
   listProfiles(): Promise<Profile[]>
-  createUser(name: string, email: string, password: string): Promise<void>
+  /** login = Benutzername oder vollständige E-Mail */
+  createUser(name: string, login: string, password: string): Promise<void>
   updateProfile(id: string, patch: Partial<Pick<Profile, "role" | "approved" | "display_name">>): Promise<void>
 }
 
@@ -85,9 +100,9 @@ class SupabaseBackend implements Backend {
     return this.me
   }
 
-  async signIn(email: string, password: string): Promise<Profile> {
-    const { data, error } = await this.sb.auth.signInWithPassword({ email, password })
-    if (error) throw new Error(error.message === "Invalid login credentials" ? "E-Mail oder Passwort ist falsch." : error.message)
+  async signIn(login: string, password: string): Promise<Profile> {
+    const { data, error } = await this.sb.auth.signInWithPassword({ email: loginToEmail(login), password })
+    if (error) throw new Error(error.message === "Invalid login credentials" ? "Benutzername oder Passwort ist falsch." : error.message)
     this.me = await this.loadProfile(data.user.id)
     if (!this.me.approved) {
       await this.sb.auth.signOut()
@@ -99,6 +114,11 @@ class SupabaseBackend implements Backend {
   async signOut(): Promise<void> {
     await this.sb.auth.signOut()
     this.me = null
+  }
+
+  async getAccessToken(): Promise<string | null> {
+    const { data } = await this.sb.auth.getSession()
+    return data.session?.access_token ?? null
   }
 
   async listEpics(): Promise<EpicMeta[]> {
@@ -190,9 +210,9 @@ class SupabaseBackend implements Backend {
     return data as Profile[]
   }
 
-  async createUser(name: string, email: string, password: string): Promise<void> {
+  async createUser(name: string, login: string, password: string): Promise<void> {
     const { data, error } = await this.sbSignup.auth.signUp({
-      email, password,
+      email: loginToEmail(login), password,
       options: { data: { display_name: name } },
     })
     if (error) throw new Error(error.message)
@@ -212,8 +232,8 @@ class SupabaseBackend implements Backend {
 
 /* ------------------------------ Demo (lokal) ------------------------------ */
 
-const DEMO_KEY = "opsepic.demo.v1"
-export const DEMO_LOGIN = { email: "admin@demo.local", password: "demo" }
+const DEMO_KEY = "opsepic.demo.v2"
+export const DEMO_LOGIN = { username: "admin", password: "demo" }
 
 type DemoStore = {
   users: Array<Profile & { password: string }>
@@ -230,7 +250,7 @@ class DemoBackend implements Backend {
     const raw = localStorage.getItem(DEMO_KEY)
     if (raw) return JSON.parse(raw) as DemoStore
     const store: DemoStore = {
-      users: [{ id: "u-admin", email: DEMO_LOGIN.email, display_name: "Demo Admin", role: "admin", approved: true, password: DEMO_LOGIN.password, created_at: new Date().toISOString() }],
+      users: [{ id: "u-admin", email: loginToEmail(DEMO_LOGIN.username), display_name: "Demo Admin", role: "admin", approved: true, password: DEMO_LOGIN.password, created_at: new Date().toISOString() }],
       epics: [], comments: [], session: null,
     }
     localStorage.setItem(DEMO_KEY, JSON.stringify(store))
@@ -254,10 +274,11 @@ class DemoBackend implements Backend {
     return this.me
   }
 
-  async signIn(email: string, password: string): Promise<Profile> {
+  async signIn(login: string, password: string): Promise<Profile> {
     const store = this.read()
-    const u = store.users.find(x => x.email.toLowerCase() === email.trim().toLowerCase())
-    if (!u || u.password !== password) throw new Error("E-Mail oder Passwort ist falsch.")
+    const email = loginToEmail(login)
+    const u = store.users.find(x => x.email.toLowerCase() === email.toLowerCase())
+    if (!u || u.password !== password) throw new Error("Benutzername oder Passwort ist falsch.")
     if (!u.approved) throw new Error("Dieses Konto ist noch nicht freigeschaltet.")
     store.session = u.id
     this.write(store)
@@ -270,6 +291,10 @@ class DemoBackend implements Backend {
     store.session = null
     this.write(store)
     this.me = null
+  }
+
+  async getAccessToken(): Promise<string | null> {
+    return null
   }
 
   private meta(store: DemoStore, e: DemoStore["epics"][number]): EpicMeta {
@@ -344,10 +369,11 @@ class DemoBackend implements Backend {
     return this.read().users.map(u => this.profileOf(u))
   }
 
-  async createUser(name: string, email: string, password: string): Promise<void> {
+  async createUser(name: string, login: string, password: string): Promise<void> {
     const store = this.read()
-    if (store.users.some(u => u.email.toLowerCase() === email.trim().toLowerCase())) throw new Error("Diese E-Mail ist bereits registriert.")
-    store.users.push({ id: crypto.randomUUID(), email: email.trim(), display_name: name, role: "member", approved: true, password, created_at: new Date().toISOString() })
+    const email = loginToEmail(login)
+    if (store.users.some(u => u.email.toLowerCase() === email.toLowerCase())) throw new Error("Dieser Benutzername ist bereits vergeben.")
+    store.users.push({ id: crypto.randomUUID(), email, display_name: name, role: "member", approved: true, password, created_at: new Date().toISOString() })
     this.write(store)
   }
 

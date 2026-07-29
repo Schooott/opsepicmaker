@@ -160,7 +160,7 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
   }
 
   const stepBody = (n: number) => {
-    if (n === 0) return <StepIntake idea={idea} onIdeaChange={onIdeaChange} onAiResult={applyAiResult} />
+    if (n === 0) return <StepIntake backend={backend} idea={idea} onIdeaChange={onIdeaChange} onAiResult={applyAiResult} />
     if (n === 5) return <StepExport values={values} onJumpToStep={setStep} />
     return (
       <div className="flex flex-col gap-6">

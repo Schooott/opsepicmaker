@@ -8,10 +8,6 @@ import { createBackend, type EpicRecord, type Profile } from "@/lib/backend"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Spinner } from "@/components/ui/spinner"
 import { Toaster } from "@/components/ui/sonner"
 import { EpicList } from "@/components/epic-list"
@@ -91,31 +87,18 @@ export function App() {
               </Button>
             )}
           </nav>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-3">
             {backend.kind === "demo" && <Badge variant="outline">Demo</Badge>}
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
-                <Avatar className="size-6">
-                  <AvatarFallback>{initials}</AvatarFallback>
-                </Avatar>
-                {profile.display_name}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel className="flex flex-col gap-0.5">
-                  {profile.display_name}
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {profile.email} · {profile.role === "admin" ? "Admin" : "Mitglied"}
-                  </span>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={logout}>
-                    <LogOutIcon />
-                    Abmelden
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <span className="flex items-center gap-2 text-sm" title={profile.role === "admin" ? "Admin" : "Mitglied"}>
+              <Avatar className="size-6">
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+              {profile.display_name}
+            </span>
+            <Button variant="ghost" size="sm" onClick={logout}>
+              <LogOutIcon data-icon="inline-start" />
+              Abmelden
+            </Button>
           </div>
         </div>
       </header>

@@ -11,10 +11,13 @@ Built with React, Vite and [shadcn/ui](https://ui.shadcn.com). Hosted as a stati
 1. Create a Supabase project and run `supabase-setup.sql` in its SQL editor.
 2. In Supabase: Authentication → Sign In / Up → disable "Confirm email".
 3. Create the first user in the Supabase dashboard (Authentication → Add user, auto-confirm). The first user automatically becomes admin; all further accounts are created inside the app.
-4. Put the project URL and anon key into `src/config.ts`.
-5. Push to `main` — the GitHub Actions workflow builds and deploys to Pages (Pages source must be set to "GitHub Actions").
+4. Put the project URL and publishable key into `src/config.ts`.
+5. Deploy `supabase/functions/ai-prefill` as an edge function and set the `ANTHROPIC_API_KEY` secret (Dashboard → Edge Functions → Secrets). The AI key then lives server-side only.
+6. Push to `main` — the GitHub Actions workflow builds and deploys to Pages (Pages source must be set to "GitHub Actions").
 
-Without Supabase credentials the app runs in a local demo mode (browser-only storage).
+Sign-in uses usernames: the app maps `<username>` to the synthetic address `<username>@epicmaker.local` internally (Supabase Auth is email-based). Inputs containing `@` are treated as full email addresses.
+
+Without Supabase credentials the app runs in a local demo mode (browser-only storage, login `admin` / `demo`; the AI call then requires entering an Anthropic API key in the app).
 
 ## Development
 

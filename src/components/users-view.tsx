@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react"
 import { UserPlusIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import type { Backend, Profile } from "@/lib/backend"
+import { emailToUsername, type Backend, type Profile } from "@/lib/backend"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,7 +28,7 @@ type Props = {
 export function UsersView({ backend, profile }: Props) {
   const [users, setUsers] = useState<Profile[] | null>(null)
   const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [creating, setCreating] = useState(false)
 
@@ -49,10 +49,10 @@ export function UsersView({ backend, profile }: Props) {
     e.preventDefault()
     setCreating(true)
     try {
-      await backend.createUser(name.trim(), email.trim(), password)
+      await backend.createUser(name.trim(), username.trim(), password)
       toast.success(`Konto für ${name.trim()} angelegt`)
       setName("")
-      setEmail("")
+      setUsername("")
       setPassword("")
       load()
     } catch (err) {
@@ -89,8 +89,16 @@ export function UsersView({ backend, profile }: Props) {
                 <Input id="nu-name" required value={name} onChange={e => setName(e.target.value)} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="nu-email">E-Mail</FieldLabel>
-                <Input id="nu-email" type="email" required value={email} onChange={e => setEmail(e.target.value)} />
+                <FieldLabel htmlFor="nu-username">Benutzername</FieldLabel>
+                <Input
+                  id="nu-username"
+                  required
+                  pattern="[A-Za-z0-9._\-]+"
+                  title="Nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich"
+                  autoComplete="off"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                />
               </Field>
               <Field>
                 <FieldLabel htmlFor="nu-pw">Passwort</FieldLabel>
@@ -125,7 +133,7 @@ export function UsersView({ backend, profile }: Props) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>E-Mail</TableHead>
+                  <TableHead>Benutzername</TableHead>
                   <TableHead>Rolle</TableHead>
                   <TableHead>Aktiv</TableHead>
                 </TableRow>
@@ -141,7 +149,7 @@ export function UsersView({ backend, profile }: Props) {
                           {isSelf && <Badge variant="secondary">Du</Badge>}
                         </span>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                      <TableCell className="text-muted-foreground">{emailToUsername(u.email)}</TableCell>
                       <TableCell>
                         {isSelf ? (
                           <Badge>{u.role === "admin" ? "Admin" : "Mitglied"}</Badge>
