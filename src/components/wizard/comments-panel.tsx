@@ -179,7 +179,7 @@ export function CommentsPanel({ panel, comments, loading, profile, onClose, onAd
         <Divider />
         <Stack gap={6}>
           {replyTo && (
-            <Group gap={6} wrap="nowrap" bg="gray.1" px={10} py={6} style={{ borderRadius: "var(--mantine-radius-md)" }}>
+            <Group gap={6} wrap="nowrap" bg="gray.2" px={10} py={6} style={{ borderRadius: "var(--mantine-radius-md)" }}>
               <CornerDownRightIcon size={13} color="var(--mantine-color-dimmed)" />
               <Text size="xs" c="dimmed" truncate style={{ flex: 1 }}>
                 Antwort auf {replyTo.author_name}: „{replyTo.body}“

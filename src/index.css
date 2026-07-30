@@ -1,1 +1,28 @@
 @import "@fontsource-variable/geist";
+
+/* Kontrast-Anpassungen für Controls auf den grauen Section-Karten (gray.0):
+   Auswahl-Elemente bekommen weißen Grund bzw. klare Kanten, damit sie sich
+   wie die Eingabefelder vom Kartenhintergrund abheben. */
+
+/* Chips (Bereichsauswahl): weiß mit Rahmen, gewählt indigo */
+.mantine-Chip-label {
+  background-color: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-gray-4);
+}
+
+.mantine-Chip-label[data-checked] {
+  background-color: var(--mantine-color-indigo-0);
+  border-color: var(--mantine-color-indigo-5);
+}
+
+/* SegmentedControl: sichtbarer Track, weißer aktiver Pill */
+.mantine-SegmentedControl-root {
+  background-color: var(--mantine-color-gray-2);
+  border: 1px solid var(--mantine-color-gray-3);
+}
+
+/* Code-Blöcke (Jira-Export-Vorschau): weiß mit Rahmen */
+.mantine-Code-root {
+  background-color: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-gray-3);
+}

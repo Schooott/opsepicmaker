@@ -110,7 +110,7 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                     </Table.Td>
                     <Table.Td>
                       <Badge
-                        variant="light"
+                        variant={e.status === "abgeschlossen" ? "light" : "outline"}
                         color={e.status === "abgeschlossen" ? "teal" : "gray"}
                         leftSection={e.status === "abgeschlossen" ? <CircleCheckIcon size={11} /> : undefined}
                       >
@@ -120,7 +120,7 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                     <Table.Td>{e.creator_name}</Table.Td>
                     <Table.Td c="dimmed">{formatTime(e.updated_at)}</Table.Td>
                     <Table.Td ta="center">
-                      <Badge variant="light" color="gray" leftSection={<MessageSquareIcon size={12} />}>
+                      <Badge variant="outline" color="gray" leftSection={<MessageSquareIcon size={12} />}>
                         {e.comment_count}
                       </Badge>
                     </Table.Td>

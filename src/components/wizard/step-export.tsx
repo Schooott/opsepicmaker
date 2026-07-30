@@ -35,9 +35,9 @@ function CopyCard({ title, description, text, preview }: { title: string; descri
           </Button>
         </Group>
         {preview === "block" ? (
-          <ScrollArea h={260} type="auto">
+          <ScrollArea.Autosize mah={260} type="auto">
             <Code block>{text}</Code>
-          </ScrollArea>
+          </ScrollArea.Autosize>
         ) : (
           <Code block>{text}</Code>
         )}
@@ -105,9 +105,9 @@ export function StepExport({ values, onJumpToStep }: Props) {
             checked={withLeitfragen}
             onChange={e => setWithLeitfragen(e.currentTarget.checked)}
           />
-          <ScrollArea h={320} type="auto">
+          <ScrollArea.Autosize mah={340} type="auto">
             <Code block>{buildWikiDescription(values, withLeitfragen)}</Code>
-          </ScrollArea>
+          </ScrollArea.Autosize>
         </Stack>
       </Card>
 

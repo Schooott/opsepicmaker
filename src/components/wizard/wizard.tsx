@@ -275,7 +275,7 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
         </Button>
         <Title order={4} style={{ minWidth: 0 }} lineClamp={1}>{title}</Title>
         <Badge
-          variant="light"
+          variant={status === "abgeschlossen" ? "light" : "outline"}
           color={status === "abgeschlossen" ? "teal" : "gray"}
           leftSection={status === "abgeschlossen" ? <CircleCheckIcon size={11} /> : undefined}
         >
