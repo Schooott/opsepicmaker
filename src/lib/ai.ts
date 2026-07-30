@@ -25,7 +25,7 @@ Regeln:
 - Fakten (Namen, Daten, Teams, Termine) NUR übernehmen, wenn sie im Input genannt oder eindeutig ableitbar sind. Niemals Personen, Daten oder Termine erfinden — solche Felder leer ("") lassen.
 - Inhaltliche Felder (Ausgangslage, Ziel, Scope, Deliverables, Risiken, Akzeptanzkriterien, Erfolgskriterien) dürfen als gut begründete Vorschläge formuliert werden, die zum Input passen.
 - Akzeptanzkriterien beschreiben die WIRKUNG (Outcome), nicht den Output: Formuliere den überprüfbaren Zustand nach Abschluss aus Sicht der Nutzenden bzw. des Teams — was ist dann möglich, einfacher oder dauerhaft geregelt. Falsch: "Guideline-Dokument erstellt". Richtig: "Squads finden die Guidelines an einem bekannten Ort und wenden sie ohne Rückfragen an."
-- Falls Screenshots angehängt sind: deren Inhalte (Texte, UI-Zustände, Diagramme) gleichwertig zum Text auswerten.
+- Falls Dateien angehängt sind (Screenshots, PDFs, Dokumente, Tabellen): deren Inhalte (Texte, UI-Zustände, Diagramme, Tabellenwerte) gleichwertig zur Texteingabe auswerten.
 - Mehrzeilige Felder: eine Aussage pro Zeile, ohne Aufzählungszeichen (kein "-", kein "*").
 - Erfolgskriterien-Dimensionen nur befüllen, wenn relevant; sonst leer lassen.
 - "pilotGeplant": "Ja"/"Nein" nur bei klarer Aussage im Input, sonst "Noch offen".
@@ -56,8 +56,11 @@ function extractJson(text: string): AiResult {
   return JSON.parse(t.slice(start, end + 1)) as AiResult
 }
 
-/** Angehängter Screenshot für die KI (base64 ohne Daten-URL-Präfix) */
-export type AiImage = { data: string; mediaType: string }
+/** Angehängte Datei für die KI (Base64 ohne Daten-URL-Präfix bzw. extrahierter Text) */
+export type AiAttachment =
+  | { kind: "image"; name: string; data: string; mediaType: string; preview: string }
+  | { kind: "pdf"; name: string; data: string }
+  | { kind: "text"; name: string; text: string }
 
 /** Vorgeschlagene Story/Aufgabe zum geschärften Epic */
 export type StorySuggestion = { typ: "Story" | "Task"; titel: string; beschreibung: string }
@@ -65,6 +68,7 @@ export type StorySuggestion = { typ: "Story" | "Task"; titel: string; beschreibu
 type ContentBlock =
   | { type: "text"; text: string }
   | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+  | { type: "document"; source: { type: "base64"; media_type: "application/pdf"; data: string }; title?: string }
 
 async function callAi(token: string, payload: unknown): Promise<string> {
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/ai-prefill`, {
@@ -92,14 +96,20 @@ async function callAi(token: string, payload: unknown): Promise<string> {
   return textBlock.text as string
 }
 
-export async function aiPrefill(token: string, model: string, idea: string, images: AiImage[] = []): Promise<AiResult> {
+export async function aiPrefill(token: string, model: string, idea: string, attachments: AiAttachment[] = []): Promise<AiResult> {
   const today = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
-  const prompt = `Heutiges Datum: ${today}\n\nFeldliste (JSON-Schlüssel, Typ, Bedeutung):\n${buildFieldSpec()}\n\nEingabe (Beschreibung/Notizen/Transkript${images.length ? " – zusätzlich " + images.length + " Screenshot(s) angehängt" : ""}):\n"""\n${idea}\n"""\n\nAntworte jetzt nur mit dem JSON-Objekt.`
+  const textAttachments = attachments.filter(a => a.kind === "text")
+  const attachmentTexts = textAttachments
+    .map(a => `\n\nInhalt der angehängten Datei „${a.name}“:\n"""\n${a.text}\n"""`)
+    .join("")
+  const binaryCount = attachments.length - textAttachments.length
+  const prompt = `Heutiges Datum: ${today}\n\nFeldliste (JSON-Schlüssel, Typ, Bedeutung):\n${buildFieldSpec()}\n\nEingabe (Beschreibung/Notizen/Transkript${binaryCount ? " – zusätzlich " + binaryCount + " Datei(en) angehängt" : ""}):\n"""\n${idea}\n"""${attachmentTexts}\n\nAntworte jetzt nur mit dem JSON-Objekt.`
   const content: ContentBlock[] = [
-    ...images.map<ContentBlock>(img => ({
-      type: "image",
-      source: { type: "base64", media_type: img.mediaType, data: img.data },
-    })),
+    ...attachments.flatMap<ContentBlock>(a => {
+      if (a.kind === "image") return [{ type: "image", source: { type: "base64", media_type: a.mediaType, data: a.data } }]
+      if (a.kind === "pdf") return [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: a.data }, title: a.name }]
+      return []
+    }),
     { type: "text", text: prompt },
   ]
   const text = await callAi(token, {

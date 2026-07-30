@@ -1,14 +1,14 @@
-// Schritt 1: Grundidee erfassen (Text/Diktat/Aufnahme/Screenshots) und KI-Vorbefüllung.
+// Schritt 1: Grundidee erfassen (Text/Diktat/Aufnahme/Dateien) und KI-Vorbefüllung.
 import { useState } from "react"
 import { ActionIcon, Alert, Button, Card, FileButton, Group, Image, Indicator, List, Paper, Select, Stack, Text, Textarea, Title } from "@mantine/core"
-import { CircleHelpIcon, ImagePlusIcon, LightbulbIcon, MicIcon, SparklesIcon, SquareIcon, TriangleAlertIcon, XIcon } from "lucide-react"
+import { CircleHelpIcon, FileTextIcon, LightbulbIcon, MicIcon, PaperclipIcon, SparklesIcon, SquareIcon, TriangleAlertIcon, XIcon } from "lucide-react"
 
-import { aiPrefill, type AiImage, type AiResult } from "@/lib/ai"
+import { aiPrefill, type AiAttachment, type AiResult } from "@/lib/ai"
+import { fileToAttachment } from "@/lib/attachments"
 import type { Backend } from "@/lib/backend"
-import { imageToAiBase64 } from "@/lib/image"
 import { useRecorder } from "@/hooks/use-recorder"
 
-type Attachment = AiImage & { name: string; preview: string }
+const ACCEPT = "image/*,.pdf,.docx,.doc,.xlsx,.txt,.md,.csv,.json"
 
 type Props = {
   backend: Backend
@@ -22,20 +22,21 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
   const [error, setError] = useState("")
   const [okMessage, setOkMessage] = useState("")
   const [rueckfragen, setRueckfragen] = useState<string[]>([])
-  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [attachments, setAttachments] = useState<AiAttachment[]>([])
 
-  async function addImages(files: File[]) {
+  async function addFiles(files: File[]) {
     setError("")
-    try {
-      const next: Attachment[] = []
-      for (const f of files.slice(0, 8 - attachments.length)) {
-        const img = await imageToAiBase64(f)
-        next.push({ ...img, name: f.name })
+    const errors: string[] = []
+    const next: AiAttachment[] = []
+    for (const f of files.slice(0, 8 - attachments.length)) {
+      try {
+        next.push(await fileToAttachment(f))
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : String(e))
       }
-      setAttachments(a => [...a, ...next])
-    } catch (e) {
-      setError("Screenshot konnte nicht gelesen werden: " + (e instanceof Error ? e.message : String(e)))
     }
+    if (next.length) setAttachments(a => [...a, ...next])
+    if (errors.length) setError(errors.join("\n"))
   }
 
   const rec = useRecorder(text => onIdeaChange((idea.trimEnd() + "\n" + text).trim()))
@@ -54,7 +55,7 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
       return
     }
     if (idea.trim().length < 20 && attachments.length === 0) {
-      setError("Bitte zuerst die Grundidee beschreiben (mind. ein paar Sätze) oder Screenshots anhängen.")
+      setError("Bitte zuerst die Grundidee beschreiben (mind. ein paar Sätze) oder Dateien anhängen.")
       return
     }
     setLoading(true)
@@ -132,34 +133,43 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
         <Stack gap="xs">
           {attachments.length > 0 && (
             <Group gap="sm" wrap="wrap">
-              {attachments.map((a, i) => (
-                <Indicator
-                  key={i}
-                  label={
-                    <ActionIcon size={18} radius="xl" color="gray" aria-label={`${a.name} entfernen`} onClick={() => setAttachments(list => list.filter((_, x) => x !== i))}>
-                      <XIcon size={11} />
-                    </ActionIcon>
-                  }
-                  color="transparent"
-                  offset={4}
-                >
-                  <Image src={a.preview} alt={a.name} title={a.name} w={72} h={72} fit="cover" radius="md" style={{ border: "1px solid var(--mantine-color-default-border)" }} />
-                </Indicator>
-              ))}
+              {attachments.map((a, i) => {
+                const remove = (
+                  <ActionIcon size={18} radius="xl" color="gray" aria-label={`${a.name} entfernen`} onClick={() => setAttachments(list => list.filter((_, x) => x !== i))}>
+                    <XIcon size={11} />
+                  </ActionIcon>
+                )
+                return a.kind === "image" ? (
+                  <Indicator key={i} label={remove} color="transparent" offset={4}>
+                    <Image src={a.preview} alt={a.name} title={a.name} w={72} h={72} fit="cover" radius="md" style={{ border: "1px solid var(--mantine-color-default-border)" }} />
+                  </Indicator>
+                ) : (
+                  <Paper key={i} withBorder radius="md" px="sm" py={6}>
+                    <Group gap={8} wrap="nowrap">
+                      <FileTextIcon size={15} color="var(--mantine-color-dimmed)" />
+                      <Text size="sm" maw={220} truncate title={a.name}>{a.name}</Text>
+                      {remove}
+                    </Group>
+                  </Paper>
+                )
+              })}
             </Group>
           )}
           <Group gap="sm">
             <Button loading={loading} leftSection={<SparklesIcon size={16} />} onClick={runAi}>
               {loading ? "KI analysiert die Eingabe …" : "Felder mit KI vorbefüllen"}
             </Button>
-            <FileButton onChange={addImages} accept="image/*" multiple>
+            <FileButton onChange={addFiles} accept={ACCEPT} multiple>
               {props => (
-                <Button {...props} variant="default" leftSection={<ImagePlusIcon size={16} />} disabled={loading || attachments.length >= 8}>
-                  Screenshots anhängen{attachments.length > 0 ? ` (${attachments.length})` : ""}
+                <Button {...props} variant="default" leftSection={<PaperclipIcon size={16} />} disabled={loading || attachments.length >= 8}>
+                  Dateien anhängen{attachments.length > 0 ? ` (${attachments.length})` : ""}
                 </Button>
               )}
             </FileButton>
           </Group>
+          <Text size="xs" c="dimmed">
+            Bis zu 8 Dateien, je max. 10 MB: Screenshots/Bilder, PDF, Word (.docx), Excel (.xlsx), Text/Markdown/CSV. Die Inhalte fließen in die KI-Vorbefüllung ein.
+          </Text>
         </Stack>
 
         {error && (
