@@ -381,9 +381,11 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
             >
               {status === "abgeschlossen" ? "Abgeschlossen" : "Entwurf"}
             </Badge>
+          </Group>
+          <Group gap="md" wrap="nowrap">
             {others.length > 0 && (
               <Tooltip
-                label={`${others.map(o => o.name).join(", ")} ${others.length === 1 ? "hat" : "haben"} dieses Epic gerade geöffnet`}
+                label={`${others.map(o => o.name).join(", ")} ${others.length === 1 ? "bearbeitet" : "bearbeiten"} dieses Epic gerade auch`}
               >
                 <Group gap={4} wrap="nowrap">
                   {others.map(o => (
@@ -393,9 +395,8 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
                 </Group>
               </Tooltip>
             )}
-          </Group>
-          <Group gap={8} wrap="nowrap" w={{ base: "100%", sm: 260 }}>
-            <Progress
+            <Group gap={8} wrap="nowrap" w={{ base: "100%", sm: 260 }}>
+              <Progress
               value={progress}
               size="md"
               radius="xl"
@@ -403,7 +404,8 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
               style={{ flex: 1 }}
               aria-label="Ausfüllstand des Epics"
             />
-            <Text size="sm" c="dimmed" w={44} ta="right">{progress} %</Text>
+              <Text size="sm" c="dimmed" w={44} ta="right">{progress} %</Text>
+            </Group>
           </Group>
         </Group>
       </Stack>
