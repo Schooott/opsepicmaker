@@ -1,7 +1,7 @@
 // Übersicht aller gespeicherten Epics des Teams.
 import { useCallback, useEffect, useState } from "react"
 import {
-  ActionIcon, Badge, Button, Card, Group, RingProgress, Skeleton, Stack, Table, Text, ThemeIcon, Title,
+  ActionIcon, Badge, Button, Card, Group, Indicator, RingProgress, Skeleton, Stack, Table, Text, ThemeIcon, Title, Tooltip,
 } from "@mantine/core"
 import { modals } from "@mantine/modals"
 import { CircleCheckIcon, FilePlus2Icon, MessageSquareIcon, PencilIcon, Trash2Icon } from "lucide-react"
@@ -23,10 +23,13 @@ type Props = {
 
 export function EpicList({ backend, profile, onOpen, onNew }: Props) {
   const [epics, setEpics] = useState<EpicMeta[] | null>(null)
+  const [unread, setUnread] = useState<Record<string, number>>({})
 
   const load = useCallback(async () => {
     try {
-      setEpics(await backend.listEpics())
+      const [list, unreadCounts] = await Promise.all([backend.listEpics(), backend.getUnreadCommentCounts()])
+      setEpics(list)
+      setUnread(unreadCounts)
     } catch (e) {
       toast.error("Laden fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)))
       setEpics([])
@@ -141,9 +144,19 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                     </Table.Td>
                     <Table.Td c="dimmed">{formatTime(e.updated_at)}</Table.Td>
                     <Table.Td ta="center">
-                      <Badge variant="outline" color="gray" leftSection={<MessageSquareIcon size={12} />}>
-                        {e.comment_count}
-                      </Badge>
+                      {(unread[e.id] ?? 0) > 0 ? (
+                        <Tooltip label={`${unread[e.id]} neue Kommentare seit deinem letzten Besuch`}>
+                          <Indicator label={unread[e.id]} size={16} color="red" offset={2}>
+                            <Badge variant="light" color="indigo" leftSection={<MessageSquareIcon size={12} />}>
+                              {e.comment_count}
+                            </Badge>
+                          </Indicator>
+                        </Tooltip>
+                      ) : (
+                        <Badge variant="outline" color="gray" leftSection={<MessageSquareIcon size={12} />}>
+                          {e.comment_count}
+                        </Badge>
+                      )}
                     </Table.Td>
                     <Table.Td onClick={ev => ev.stopPropagation()}>
                       <Group justify="flex-end" gap={4}>

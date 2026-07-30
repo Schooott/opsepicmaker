@@ -3,7 +3,7 @@
 // Bearbeiten und Löschen eigener Kommentare.
 import { useEffect, useState } from "react"
 import {
-  ActionIcon, Box, Button, Card, Divider, Group, Loader, ScrollArea, Stack, Text, Textarea, ThemeIcon, Title,
+  ActionIcon, Badge, Box, Button, Card, Divider, Group, Loader, ScrollArea, Stack, Text, Textarea, ThemeIcon, Title,
 } from "@mantine/core"
 import { CheckIcon, CornerDownRightIcon, MessageSquareIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from "lucide-react"
 
@@ -20,6 +20,8 @@ type Props = {
   comments: CommentRec[]
   loading: boolean
   profile: Profile
+  /** Markiert Kommentare, die seit dem letzten Lesen dazugekommen sind */
+  isNew: (c: CommentRec) => boolean
   onClose: () => void
   onAdd: (body: string, parentId: string | null) => Promise<void>
   onUpdate: (id: string, body: string) => Promise<void>
@@ -27,11 +29,12 @@ type Props = {
 }
 
 function CommentItem({
-  comment, profile, isReply, onReply, onUpdate, onDelete,
+  comment, profile, isReply, isNew, onReply, onUpdate, onDelete,
 }: {
   comment: CommentRec
   profile: Profile
   isReply: boolean
+  isNew: boolean
   onReply?: () => void
   onUpdate: (id: string, body: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
@@ -64,6 +67,7 @@ function CommentItem({
               {formatTime(comment.created_at)}
               {comment.updated_at ? " · bearbeitet" : ""}
             </Text>
+            {isNew && <Badge size="xs" variant="light" color="red">Neu</Badge>}
           </Group>
           {editing ? (
             <Stack gap={6}>
@@ -105,7 +109,7 @@ function CommentItem({
   )
 }
 
-export function CommentsPanel({ panel, comments, loading, profile, onClose, onAdd, onUpdate, onDelete }: Props) {
+export function CommentsPanel({ panel, comments, loading, profile, isNew, onClose, onAdd, onUpdate, onDelete }: Props) {
   const [body, setBody] = useState("")
   const [replyTo, setReplyTo] = useState<CommentRec | null>(null)
   const [sending, setSending] = useState(false)
@@ -164,12 +168,13 @@ export function CommentsPanel({ panel, comments, loading, profile, onClose, onAd
                     comment={c}
                     profile={profile}
                     isReply={false}
+                    isNew={isNew(c)}
                     onReply={() => setReplyTo(c)}
                     onUpdate={onUpdate}
                     onDelete={onDelete}
                   />
                   {repliesOf(c.id).map(r => (
-                    <CommentItem key={r.id} comment={r} profile={profile} isReply onUpdate={onUpdate} onDelete={onDelete} />
+                    <CommentItem key={r.id} comment={r} profile={profile} isReply isNew={isNew(r)} onUpdate={onUpdate} onDelete={onDelete} />
                   ))}
                 </Stack>
               ))}

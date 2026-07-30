@@ -238,6 +238,23 @@ create policy "ai_requests_select_admin" on public.ai_requests
   for select to authenticated
   using (public.is_admin());
 
+-- ---------- comment_reads: Lese-Status für Ungelesen-Anzeigen ----------
+create table public.comment_reads (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  epic_id uuid not null references public.epics(id) on delete cascade,
+  section text not null,
+  last_read_at timestamptz not null default now(),
+  primary key (user_id, epic_id, section)
+);
+
+alter table public.comment_reads enable row level security;
+
+-- Jede Person verwaltet nur den eigenen Lese-Status
+create policy "comment_reads_own" on public.comment_reads
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid() and public.is_approved());
+
 -- ---------- realtime: Live-Updates an alle Clients ----------
 alter publication supabase_realtime add table public.epics;
 alter publication supabase_realtime add table public.comments;

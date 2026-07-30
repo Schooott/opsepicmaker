@@ -145,6 +145,12 @@ export interface Backend {
   changePassword(newPassword: string): Promise<void>
   /** Eigenen Avatar hochladen (bereits verkleinertes JPEG); liefert die neue URL */
   uploadAvatar(blob: Blob): Promise<string>
+  /** Ungelesene fremde Kommentare je Epic (für die Übersicht) */
+  getUnreadCommentCounts(): Promise<Record<string, number>>
+  /** Eigener Lese-Status je Bereich eines Epics: section → last_read_at (ISO) */
+  getReadMarks(epicId: string): Promise<Record<string, string>>
+  /** Bereich als gelesen markieren (jetzt) */
+  markSectionRead(epicId: string, section: string): Promise<void>
   /** Live-Updates: onChange feuert bei jeder Änderung an einer der Tabellen; liefert Unsubscribe */
   subscribeChanges(tables: WatchedTable[], onChange: (table: WatchedTable) => void): () => void
   /** Presence: meldet, wer (außer der eigenen Person) das Epic gerade geöffnet hat; liefert Leave-Funktion */
@@ -327,6 +333,40 @@ class SupabaseBackend implements Backend {
     if (error) throw new Error(error.message)
   }
 
+  async getUnreadCommentCounts(): Promise<Record<string, number>> {
+    if (!this.me) return {}
+    const [commentsRes, readsRes] = await Promise.all([
+      this.sb.from("comments").select("epic_id,section,author,created_at"),
+      this.sb.from("comment_reads").select("epic_id,section,last_read_at"),
+    ])
+    if (commentsRes.error) throw new Error(commentsRes.error.message)
+    if (readsRes.error) throw new Error(readsRes.error.message)
+    const reads = new Map<string, string>()
+    for (const r of readsRes.data ?? []) reads.set(`${r.epic_id}:${r.section}`, r.last_read_at)
+    const counts: Record<string, number> = {}
+    for (const c of commentsRes.data ?? []) {
+      if (c.author === this.me.id) continue
+      const mark = reads.get(`${c.epic_id}:${c.section}`)
+      if (mark && c.created_at <= mark) continue
+      counts[c.epic_id] = (counts[c.epic_id] ?? 0) + 1
+    }
+    return counts
+  }
+
+  async getReadMarks(epicId: string): Promise<Record<string, string>> {
+    const { data, error } = await this.sb.from("comment_reads").select("section,last_read_at").eq("epic_id", epicId)
+    if (error) throw new Error(error.message)
+    return Object.fromEntries((data ?? []).map(r => [r.section, r.last_read_at]))
+  }
+
+  async markSectionRead(epicId: string, section: string): Promise<void> {
+    if (!this.me) return
+    const { error } = await this.sb
+      .from("comment_reads")
+      .upsert({ user_id: this.me.id, epic_id: epicId, section, last_read_at: new Date().toISOString() }, { onConflict: "user_id,epic_id,section" })
+    if (error) throw new Error(error.message)
+  }
+
   subscribeChanges(tables: WatchedTable[], onChange: (table: WatchedTable) => void): () => void {
     const ch = this.sb.channel("db-changes-" + crypto.randomUUID())
     for (const t of tables) {
@@ -428,6 +468,7 @@ type DemoStore = {
   comments: CommentRec[]
   session: string | null
   settings?: Record<string, string>
+  reads?: Array<{ user_id: string; epic_id: string; section: string; last_read_at: string }>
 }
 
 class DemoBackend implements Backend {
@@ -604,6 +645,38 @@ class DemoBackend implements Backend {
       throw new Error("Der letzte aktive Admin kann nicht entfernt werden.")
     }
     Object.assign(u, patch)
+    this.write(store)
+  }
+
+  async getUnreadCommentCounts(): Promise<Record<string, number>> {
+    if (!this.me) return {}
+    const store = this.read()
+    const reads = new Map((store.reads ?? []).filter(r => r.user_id === this.me!.id).map(r => [`${r.epic_id}:${r.section}`, r.last_read_at]))
+    const counts: Record<string, number> = {}
+    for (const c of store.comments) {
+      if (c.author === this.me.id) continue
+      const mark = reads.get(`${c.epic_id}:${c.section}`)
+      if (mark && c.created_at <= mark) continue
+      counts[c.epic_id] = (counts[c.epic_id] ?? 0) + 1
+    }
+    return counts
+  }
+
+  async getReadMarks(epicId: string): Promise<Record<string, string>> {
+    if (!this.me) return {}
+    const store = this.read()
+    return Object.fromEntries(
+      (store.reads ?? []).filter(r => r.user_id === this.me!.id && r.epic_id === epicId).map(r => [r.section, r.last_read_at]),
+    )
+  }
+
+  async markSectionRead(epicId: string, section: string): Promise<void> {
+    if (!this.me) return
+    const store = this.read()
+    store.reads = store.reads ?? []
+    const existing = store.reads.find(r => r.user_id === this.me!.id && r.epic_id === epicId && r.section === section)
+    if (existing) existing.last_read_at = new Date().toISOString()
+    else store.reads.push({ user_id: this.me.id, epic_id: epicId, section, last_read_at: new Date().toISOString() })
     this.write(store)
   }
 

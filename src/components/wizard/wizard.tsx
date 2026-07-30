@@ -2,7 +2,7 @@
 // Datenbank, bereichsbezogene Kommentare und Jira-Export.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  Badge, Box, Button, Card, ColorSwatch, Container, Flex, Group, Paper, Progress, Stack, Tabs, Text, Title, Tooltip,
+  Badge, Box, Button, Card, ColorSwatch, Container, Flex, Group, Indicator, Paper, Progress, Stack, Tabs, Text, Title, Tooltip,
 } from "@mantine/core"
 import {
   ArrowLeftIcon, ArrowRightIcon, CircleCheckIcon, CircleHelpIcon, ClockIcon, FlagIcon, FlaskConicalIcon,
@@ -59,6 +59,10 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
   const [comments, setComments] = useState<CommentRec[]>([])
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [openSection, setOpenSection] = useState<string | null>(null)
+  // Ungelesen-Status: letzter Lese-Zeitpunkt je Bereich; readCutoff friert den
+  // Stand beim Öffnen ein, damit neue Kommentare sichtbar markiert bleiben
+  const [readMarks, setReadMarks] = useState<Record<string, string>>({})
+  const [readCutoff, setReadCutoff] = useState<string | null>(null)
   const [others, setOthers] = useState<PresenceUser[]>([])
   const [stories, setStories] = useState<StorySuggestion[]>(epic?.data.stories ?? [])
   const [storiesLoading, setStoriesLoading] = useState(false)
@@ -84,6 +88,43 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
   useEffect(() => {
     if (epicId) loadComments(epicId)
   }, [epicId, loadComments])
+
+  useEffect(() => {
+    if (epicId) backend.getReadMarks(epicId).then(setReadMarks).catch(() => {})
+  }, [backend, epicId])
+
+  const unreadBySection = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const c of comments) {
+      if (c.author === profile.id) continue
+      const mark = readMarks[c.section]
+      if (mark && c.created_at <= mark) continue
+      map.set(c.section, (map.get(c.section) ?? 0) + 1)
+    }
+    return map
+  }, [comments, readMarks, profile.id])
+
+  function toggleSection(sectionId: string) {
+    if (openSection === sectionId) {
+      setOpenSection(null)
+      return
+    }
+    setReadCutoff(readMarks[sectionId] ?? null)
+    setOpenSection(sectionId)
+    if (epicId) {
+      setReadMarks(m => ({ ...m, [sectionId]: new Date().toISOString() }))
+      void backend.markSectionRead(epicId, sectionId).catch(() => {})
+    }
+  }
+
+  // Während die Sidebar offen ist, eintreffende Kommentare direkt als gelesen
+  // markieren (sie bleiben über readCutoff trotzdem als „Neu“ hervorgehoben)
+  useEffect(() => {
+    if (!epicId || !openSection) return
+    if (!comments.some(c => c.section === openSection && c.author !== profile.id)) return
+    setReadMarks(m => ({ ...m, [openSection]: new Date().toISOString() }))
+    void backend.markSectionRead(epicId, openSection).catch(() => {})
+  }, [comments, epicId, openSection, backend, profile.id])
 
   // Live-Updates: Kommentare anderer sofort anzeigen
   useEffect(() => {
@@ -330,17 +371,25 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
                     </Group>
                     {p.resp && <Text size="xs" c="dimmed">Verantwortung: {p.resp}</Text>}
                   </Stack>
-                  <Button
-                    variant={active ? "light" : "subtle"}
-                    color={active ? "indigo" : "gray"}
-                    size="xs"
-                    disabled={!epicId}
-                    title={epicId ? `Kommentare zu „${p.title}“` : "Bitte das Epic zuerst speichern"}
-                    leftSection={<MessageSquareIcon size={14} />}
-                    onClick={() => setOpenSection(active ? null : p.id)}
+                  <Indicator
+                    label={unreadBySection.get(p.id)}
+                    size={16}
+                    color="red"
+                    offset={3}
+                    disabled={!unreadBySection.get(p.id)}
                   >
-                    {count}
-                  </Button>
+                    <Button
+                      variant={active ? "light" : "subtle"}
+                      color={active ? "indigo" : "gray"}
+                      size="xs"
+                      disabled={!epicId}
+                      title={epicId ? `Kommentare zu „${p.title}“` : "Bitte das Epic zuerst speichern"}
+                      leftSection={<MessageSquareIcon size={14} />}
+                      onClick={() => toggleSection(p.id)}
+                    >
+                      {count}
+                    </Button>
+                  </Indicator>
                 </Group>
                 <Stack gap="md">
                   {FIELDS.filter(f => f.panel === p.id).map(f => (
@@ -438,6 +487,7 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
               comments={comments.filter(c => c.section === openPanel.id)}
               loading={commentsLoading}
               profile={profile}
+              isNew={c => c.author !== profile.id && (readCutoff === null || c.created_at > readCutoff)}
               onClose={() => setOpenSection(null)}
               onAdd={addComment}
               onUpdate={updateComment}
