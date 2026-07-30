@@ -18,7 +18,6 @@ import App from "./App.tsx"
 const theme = createTheme({
   primaryColor: "indigo",
   primaryShade: 7,
-  fontFamily: "'Geist Variable', ui-sans-serif, system-ui, sans-serif",
   defaultRadius: "md",
   components: {
     Card: Card.extend({
