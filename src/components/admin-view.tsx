@@ -30,10 +30,14 @@ function StatsCards({ backend }: { backend: Backend }) {
   const [stats, setStats] = useState<AdminStats | null>(null)
 
   useEffect(() => {
-    backend
-      .getAdminStats()
-      .then(setStats)
-      .catch(e => toast.error("Statistik laden fehlgeschlagen: " + (e instanceof Error ? e.message : String(e))))
+    const load = () =>
+      backend
+        .getAdminStats()
+        .then(setStats)
+        .catch(e => toast.error("Statistik laden fehlgeschlagen: " + (e instanceof Error ? e.message : String(e))))
+    load()
+    // Live-Updates: Statistik folgt Epic- und KI-Aktivität ohne Neuladen
+    return backend.subscribeChanges(["epics", "ai_requests"], load)
   }, [backend])
 
   if (stats === null) {

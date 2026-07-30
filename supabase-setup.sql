@@ -238,6 +238,12 @@ create policy "ai_requests_select_admin" on public.ai_requests
   for select to authenticated
   using (public.is_admin());
 
+-- ---------- realtime: Live-Updates an alle Clients ----------
+alter publication supabase_realtime add table public.epics;
+alter publication supabase_realtime add table public.comments;
+alter publication supabase_realtime add table public.profiles;
+alter publication supabase_realtime add table public.ai_requests;
+
 -- ---------- hardening (per Supabase security advisor) ----------
 alter function public.protect_last_admin() set search_path = public;
 

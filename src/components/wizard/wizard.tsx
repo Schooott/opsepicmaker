@@ -1,8 +1,8 @@
 // Der Epic-Wizard: 6 Schritte entlang der Template-Struktur, Speichern in der
 // Datenbank, bereichsbezogene Kommentare und Jira-Export.
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  Badge, Box, Button, Card, ColorSwatch, Container, Flex, Group, Paper, Progress, Stack, Tabs, Text, Title,
+  Badge, Box, Button, Card, ColorSwatch, Container, Flex, Group, Paper, Progress, Stack, Tabs, Text, Title, Tooltip,
 } from "@mantine/core"
 import {
   ArrowLeftIcon, ArrowRightIcon, CircleCheckIcon, CircleHelpIcon, ClockIcon, FlagIcon, FlaskConicalIcon,
@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 
 import type { AiResult } from "@/lib/ai"
-import type { Backend, CommentRec, EpicRecord, EpicStatus, Profile } from "@/lib/backend"
+import type { Backend, CommentRec, EpicRecord, EpicStatus, PresenceUser, Profile } from "@/lib/backend"
 import {
   FIELDS, PANELS, completionPercent, defaultValues, isEmpty, missingRequired, OP_STATUS, OP_TYPEN, stepOfField,
   type FieldValue, type OpRow, type Sources, type Values,
@@ -19,6 +19,7 @@ import {
 import { toast } from "@/lib/notify"
 import { CommentsPanel } from "./comments-panel"
 import { FieldRenderer } from "./field-renderer"
+import { UserAvatar } from "@/components/user-avatar"
 import { StepIntake } from "./step-intake"
 import { StepExport } from "./step-export"
 
@@ -57,6 +58,14 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
   const [comments, setComments] = useState<CommentRec[]>([])
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [openSection, setOpenSection] = useState<string | null>(null)
+  const [others, setOthers] = useState<PresenceUser[]>([])
+  // Für Realtime-Handler: aktueller Stand ohne stale closures
+  const dirtyRef = useRef(dirty)
+  const lastKnownUpdate = useRef<string | null>(epic?.updated_at ?? null)
+
+  useEffect(() => {
+    dirtyRef.current = dirty
+  }, [dirty])
 
   const loadComments = useCallback(async (id: string) => {
     setCommentsLoading(true)
@@ -72,6 +81,45 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
   useEffect(() => {
     if (epicId) loadComments(epicId)
   }, [epicId, loadComments])
+
+  // Live-Updates: Kommentare anderer sofort anzeigen
+  useEffect(() => {
+    if (!epicId) return
+    return backend.subscribeChanges(["comments"], () => loadComments(epicId))
+  }, [backend, epicId, loadComments])
+
+  // Live-Updates: Änderungen anderer am offenen Epic übernehmen (bzw. melden,
+  // falls es hier ungespeicherte Eingaben gibt)
+  useEffect(() => {
+    if (!epicId) return
+    return backend.subscribeChanges(["epics"], async () => {
+      try {
+        const fresh = await backend.getEpic(epicId)
+        if (fresh.updated_at === lastKnownUpdate.current) return
+        lastKnownUpdate.current = fresh.updated_at
+        if (fresh.updated_by === profile.id) return // eigene Speicherung (z. B. zweiter Tab)
+        const who = fresh.updated_by_name ?? "Jemand anderes"
+        if (dirtyRef.current) {
+          toast.info(`${who} hat dieses Epic gerade gespeichert. Deine ungespeicherten Eingaben bleiben erhalten – beim Speichern überschreibst du die Änderungen.`)
+          return
+        }
+        setValues({ ...defaultValues(), ...(fresh.data.values ?? {}) })
+        setSource(fresh.data.source ?? {})
+        setIdea(fresh.data.idea ?? "")
+        setStatus(fresh.status)
+        setLastSaved(new Date(fresh.updated_at))
+        toast.info(`${who} hat dieses Epic aktualisiert – die Änderungen wurden übernommen.`)
+      } catch {
+        // Epic wurde evtl. gelöscht; die Übersicht zeigt den aktuellen Stand
+      }
+    })
+  }, [backend, epicId, profile.id])
+
+  // Presence: wer hat dieses Epic gerade geöffnet
+  useEffect(() => {
+    if (!epicId) return
+    return backend.joinEpicPresence(epicId, setOthers)
+  }, [backend, epicId])
 
   async function addComment(body: string, parentId: string | null) {
     if (!epicId || !openSection) return
@@ -292,6 +340,18 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
             >
               {status === "abgeschlossen" ? "Abgeschlossen" : "Entwurf"}
             </Badge>
+            {others.length > 0 && (
+              <Tooltip
+                label={`${others.map(o => o.name).join(", ")} ${others.length === 1 ? "hat" : "haben"} dieses Epic gerade geöffnet`}
+              >
+                <Group gap={4} wrap="nowrap">
+                  {others.map(o => (
+                    <UserAvatar key={o.id} name={o.name} src={o.avatar} size={24} />
+                  ))}
+                  <Text size="xs" c="dimmed" visibleFrom="md">gerade aktiv</Text>
+                </Group>
+              </Tooltip>
+            )}
           </Group>
           <Group gap={8} wrap="nowrap" w={{ base: "100%", sm: 260 }}>
             <Progress

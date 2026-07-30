@@ -9,4 +9,7 @@ export const toast = {
   error(message: string) {
     notifications.show({ message, color: "red", autoClose: 6000 })
   },
+  info(message: string) {
+    notifications.show({ message, color: "indigo", autoClose: 6000 })
+  },
 }

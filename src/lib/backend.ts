@@ -51,7 +51,16 @@ export type EpicMeta = {
   progress: number
 }
 
-export type EpicRecord = EpicMeta & { data: EpicData }
+export type EpicRecord = EpicMeta & {
+  data: EpicData
+  updated_by?: string | null
+  updated_by_name?: string | null
+}
+
+/** Nutzer, die ein Epic gerade geöffnet haben (Realtime Presence) */
+export type PresenceUser = { id: string; name: string; avatar?: string | null }
+
+export type WatchedTable = "epics" | "comments" | "profiles" | "ai_requests"
 
 export type AdminStats = {
   aiRequestsMonth: number
@@ -136,6 +145,10 @@ export interface Backend {
   changePassword(newPassword: string): Promise<void>
   /** Eigenen Avatar hochladen (bereits verkleinertes JPEG); liefert die neue URL */
   uploadAvatar(blob: Blob): Promise<string>
+  /** Live-Updates: onChange feuert bei jeder Änderung an einer der Tabellen; liefert Unsubscribe */
+  subscribeChanges(tables: WatchedTable[], onChange: (table: WatchedTable) => void): () => void
+  /** Presence: meldet, wer (außer der eigenen Person) das Epic gerade geöffnet hat; liefert Leave-Funktion */
+  joinEpicPresence(epicId: string, onOthers: (users: PresenceUser[]) => void): () => void
 }
 
 /* ------------------------------ Supabase ------------------------------ */
@@ -212,14 +225,15 @@ class SupabaseBackend implements Backend {
   async getEpic(id: string): Promise<EpicRecord> {
     const { data, error } = await this.sb
       .from("epics")
-      .select("id,title,status,data,created_at,updated_at,created_by,creator:profiles!epics_created_by_fkey(display_name),comments(count)")
+      .select("id,title,status,data,created_at,updated_at,created_by,updated_by,creator:profiles!epics_created_by_fkey(display_name),updater:profiles!epics_updated_by_fkey(display_name),comments(count)")
       .eq("id", id)
       .single()
     if (error) throw new Error(error.message)
-    const r = data as unknown as { id: string; title: string; status: EpicStatus; data: EpicData; created_at: string; updated_at: string; created_by: string; creator: { display_name: string } | null; comments: { count: number }[] }
+    const r = data as unknown as { id: string; title: string; status: EpicStatus; data: EpicData; created_at: string; updated_at: string; created_by: string; updated_by: string | null; creator: { display_name: string } | null; updater: { display_name: string } | null; comments: { count: number }[] }
     return {
       id: r.id, title: r.title, status: r.status, data: r.data, created_at: r.created_at, updated_at: r.updated_at,
       created_by: r.created_by, creator_name: r.creator?.display_name ?? "?",
+      updated_by: r.updated_by, updated_by_name: r.updater?.display_name ?? null,
       comment_count: r.comments?.[0]?.count ?? 0,
       progress: completionPercent(r.data?.values ?? {}),
     }
@@ -311,6 +325,37 @@ class SupabaseBackend implements Backend {
   async updateProfile(id: string, patch: Partial<Pick<Profile, "role" | "approved" | "display_name">>): Promise<void> {
     const { error } = await this.sb.from("profiles").update(patch).eq("id", id)
     if (error) throw new Error(error.message)
+  }
+
+  subscribeChanges(tables: WatchedTable[], onChange: (table: WatchedTable) => void): () => void {
+    const ch = this.sb.channel("db-changes-" + crypto.randomUUID())
+    for (const t of tables) {
+      ch.on("postgres_changes", { event: "*", schema: "public", table: t }, () => onChange(t))
+    }
+    ch.subscribe()
+    return () => {
+      void this.sb.removeChannel(ch)
+    }
+  }
+
+  joinEpicPresence(epicId: string, onOthers: (users: PresenceUser[]) => void): () => void {
+    const me = this.me
+    if (!me) return () => {}
+    const ch = this.sb.channel(`presence-epic-${epicId}`, { config: { presence: { key: me.id } } })
+    ch.on("presence", { event: "sync" }, () => {
+      const state = ch.presenceState<{ name: string; avatar: string | null }>()
+      onOthers(
+        Object.entries(state)
+          .filter(([key]) => key !== me.id)
+          .map(([key, metas]) => ({ id: key, name: metas[0]?.name ?? "?", avatar: metas[0]?.avatar ?? null })),
+      )
+    })
+    ch.subscribe(s => {
+      if (s === "SUBSCRIBED") void ch.track({ name: me.display_name, avatar: me.avatar_url ?? null })
+    })
+    return () => {
+      void this.sb.removeChannel(ch)
+    }
   }
 
   async getAdminStats(): Promise<AdminStats> {
@@ -560,6 +605,15 @@ class DemoBackend implements Backend {
     }
     Object.assign(u, patch)
     this.write(store)
+  }
+
+  subscribeChanges(): () => void {
+    // Demo-Modus: kein Backend, keine Live-Updates
+    return () => {}
+  }
+
+  joinEpicPresence(): () => void {
+    return () => {}
   }
 
   async getAdminStats(): Promise<AdminStats> {

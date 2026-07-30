@@ -38,6 +38,9 @@ export function UsersView({ backend, profile }: Props) {
     load()
   }, [load])
 
+  // Live-Updates: Nutzerliste folgt Profil-Änderungen ohne Neuladen
+  useEffect(() => backend.subscribeChanges(["profiles"], () => load()), [backend, load])
+
   async function create(e: React.FormEvent) {
     e.preventDefault()
     setCreating(true)

@@ -37,6 +37,9 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
     load()
   }, [load])
 
+  // Live-Updates: Liste neu laden, wenn andere Epics/Kommentare/Profile ändern
+  useEffect(() => backend.subscribeChanges(["epics", "comments", "profiles"], () => load()), [backend, load])
+
   function confirmDelete(epic: EpicMeta) {
     modals.openConfirmModal({
       title: "Epic löschen?",
