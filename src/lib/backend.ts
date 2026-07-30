@@ -3,7 +3,7 @@
 // keine Supabase-Zugangsdaten hinterlegt sind.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { SUPABASE_ANON_KEY, SUPABASE_URL, USERNAME_EMAIL_DOMAIN, supabaseConfigured } from "@/config"
-import { AI_MODELS } from "./ai"
+import { AI_MODELS, type StorySuggestion } from "./ai"
 import { completionPercent, type Sources, type Values } from "./fields"
 
 const DEFAULT_AI_MODEL = AI_MODELS[0].value
@@ -33,7 +33,7 @@ export type Profile = {
   created_at?: string
 }
 
-export type EpicData = { values: Values; source: Sources; idea: string }
+export type EpicData = { values: Values; source: Sources; idea: string; stories?: StorySuggestion[] }
 
 export type EpicStatus = "entwurf" | "abgeschlossen"
 

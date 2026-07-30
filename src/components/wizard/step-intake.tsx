@@ -1,11 +1,14 @@
-// Schritt 1: Grundidee erfassen (Text/Diktat/Aufnahme) und KI-Vorbefüllung.
+// Schritt 1: Grundidee erfassen (Text/Diktat/Aufnahme/Screenshots) und KI-Vorbefüllung.
 import { useState } from "react"
-import { Alert, Button, Card, Group, List, Paper, Select, Stack, Text, Textarea, Title } from "@mantine/core"
-import { CircleHelpIcon, LightbulbIcon, MicIcon, SparklesIcon, SquareIcon, TriangleAlertIcon } from "lucide-react"
+import { ActionIcon, Alert, Button, Card, FileButton, Group, Image, Indicator, List, Paper, Select, Stack, Text, Textarea, Title } from "@mantine/core"
+import { CircleHelpIcon, ImagePlusIcon, LightbulbIcon, MicIcon, SparklesIcon, SquareIcon, TriangleAlertIcon, XIcon } from "lucide-react"
 
-import { aiPrefill, type AiResult } from "@/lib/ai"
+import { aiPrefill, type AiImage, type AiResult } from "@/lib/ai"
 import type { Backend } from "@/lib/backend"
+import { imageToAiBase64 } from "@/lib/image"
 import { useRecorder } from "@/hooks/use-recorder"
+
+type Attachment = AiImage & { name: string; preview: string }
 
 type Props = {
   backend: Backend
@@ -19,6 +22,21 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
   const [error, setError] = useState("")
   const [okMessage, setOkMessage] = useState("")
   const [rueckfragen, setRueckfragen] = useState<string[]>([])
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+
+  async function addImages(files: File[]) {
+    setError("")
+    try {
+      const next: Attachment[] = []
+      for (const f of files.slice(0, 8 - attachments.length)) {
+        const img = await imageToAiBase64(f)
+        next.push({ ...img, name: f.name })
+      }
+      setAttachments(a => [...a, ...next])
+    } catch (e) {
+      setError("Screenshot konnte nicht gelesen werden: " + (e instanceof Error ? e.message : String(e)))
+    }
+  }
 
   const rec = useRecorder(text => onIdeaChange((idea.trimEnd() + "\n" + text).trim()))
 
@@ -35,8 +53,8 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
       setError("Die KI-Vorbefüllung ist im Demo-Modus ohne Backend nicht verfügbar.")
       return
     }
-    if (idea.trim().length < 20) {
-      setError("Bitte zuerst die Grundidee beschreiben (mind. ein paar Sätze).")
+    if (idea.trim().length < 20 && attachments.length === 0) {
+      setError("Bitte zuerst die Grundidee beschreiben (mind. ein paar Sätze) oder Screenshots anhängen.")
       return
     }
     setLoading(true)
@@ -44,7 +62,7 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
       const token = await backend.getAccessToken()
       if (!token) throw new Error("Keine gültige Sitzung – bitte neu anmelden.")
       const model = await backend.getAiModel()
-      const result = await aiPrefill(token, model, idea.trim())
+      const result = await aiPrefill(token, model, idea.trim(), attachments)
       const filled = onAiResult(result)
       setOkMessage(`${filled} Felder vorbefüllt (als „KI-Vorschlag“ markiert). Bitte in den nächsten Schritten prüfen und anpassen.`)
       if (Array.isArray(result.rueckfragen)) setRueckfragen(result.rueckfragen.map(String))
@@ -111,11 +129,38 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
           </Stack>
         </Paper>
 
-        <Group>
-          <Button loading={loading} leftSection={<SparklesIcon size={16} />} onClick={runAi}>
-            {loading ? "KI analysiert die Eingabe …" : "Felder mit KI vorbefüllen"}
-          </Button>
-        </Group>
+        <Stack gap="xs">
+          {attachments.length > 0 && (
+            <Group gap="sm" wrap="wrap">
+              {attachments.map((a, i) => (
+                <Indicator
+                  key={i}
+                  label={
+                    <ActionIcon size={18} radius="xl" color="gray" aria-label={`${a.name} entfernen`} onClick={() => setAttachments(list => list.filter((_, x) => x !== i))}>
+                      <XIcon size={11} />
+                    </ActionIcon>
+                  }
+                  color="transparent"
+                  offset={4}
+                >
+                  <Image src={a.preview} alt={a.name} title={a.name} w={72} h={72} fit="cover" radius="md" style={{ border: "1px solid var(--mantine-color-default-border)" }} />
+                </Indicator>
+              ))}
+            </Group>
+          )}
+          <Group gap="sm">
+            <Button loading={loading} leftSection={<SparklesIcon size={16} />} onClick={runAi}>
+              {loading ? "KI analysiert die Eingabe …" : "Felder mit KI vorbefüllen"}
+            </Button>
+            <FileButton onChange={addImages} accept="image/*" multiple>
+              {props => (
+                <Button {...props} variant="default" leftSection={<ImagePlusIcon size={16} />} disabled={loading || attachments.length >= 8}>
+                  Screenshots anhängen{attachments.length > 0 ? ` (${attachments.length})` : ""}
+                </Button>
+              )}
+            </FileButton>
+          </Group>
+        </Stack>
 
         {error && (
           <Alert color="red" title="Fehler beim KI-Aufruf" icon={<TriangleAlertIcon size={16} />}>

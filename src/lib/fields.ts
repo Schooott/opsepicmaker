@@ -101,7 +101,7 @@ export const FIELDS: FieldDef[] = [
   // --- Deliverables
   { key: "deliverables", panel: "deliv", type: "list", req: true, label: "Geplante Ergebnisse", hint: "Leitfrage: Welche konkreten und nutzbaren Ergebnisse sollen entstehen? Z. B. Standards, Prozesse, Guidelines, Templates, Toolkits, Dokumentationen, Tool-Konfigurationen, Trainings, Pilotauswertungen, Governance-Modell.", ai: "2–4 konkrete Deliverables." },
   // --- Akzeptanzkriterien
-  { key: "akzeptanzkriterien", panel: "ak", type: "list", req: true, label: "Outcome-Akzeptanzkriterien", hint: "Verbindliche, überprüfbare Kriterien für die Abnahme – werden in Jira als Checkliste gepflegt.", ai: "3 überprüfbare Outcome-Akzeptanzkriterien." },
+  { key: "akzeptanzkriterien", panel: "ak", type: "list", req: true, label: "Outcome-Akzeptanzkriterien", hint: "Verbindliche, überprüfbare Kriterien für die Abnahme – als Wirkung formuliert (welcher Zustand ist danach erreicht), nicht als Liefergegenstand. Werden in Jira als Checkliste gepflegt.", ai: "3–5 überprüfbare Akzeptanzkriterien als Outcome-/Wirkungs-Aussagen (erreichter Zustand aus Nutzer-/Teamsicht), keine Output-Listen." },
   // --- Pilot & Einführung
   { key: "validierung", panel: "pilot", type: "textarea", label: "Validierung", hint: "Leitfrage: Wie werden Problemverständnis, Bedarf und Lösungsansatz überprüft? Welche Zielgruppen werden einbezogen?", ai: "Wie Problem/Lösung validiert werden." },
   { key: "pilotGeplant", panel: "pilot", type: "select", variant: "segmented", options: PILOT_OPTIONS, label: "Ist ein Pilot geplant?", hint: "Steuert, ob die Pilot-Details abgefragt werden.", ai: '"Ja", "Nein" oder "Noch offen".' },

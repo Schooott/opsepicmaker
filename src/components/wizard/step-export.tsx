@@ -1,8 +1,9 @@
 // Schritt 6: Vollständigkeit prüfen und Inhalte für Jira kopieren.
 import { useState } from "react"
-import { Button, Card, Checkbox, Code, Group, ScrollArea, Stack, Text, Title, UnstyledButton } from "@mantine/core"
-import { CheckIcon, ClipboardCopyIcon, TriangleAlertIcon } from "lucide-react"
+import { ActionIcon, Badge, Button, Card, Checkbox, Code, Group, Paper, ScrollArea, Stack, Text, Title, UnstyledButton } from "@mantine/core"
+import { CheckIcon, ClipboardCopyIcon, SparklesIcon, TriangleAlertIcon, XIcon } from "lucide-react"
 
+import type { StorySuggestion } from "@/lib/ai"
 import { missingRequired, requiredFields, stepOfField, type Values } from "@/lib/fields"
 import { buildAkText, buildWikiDescription } from "@/lib/exportJira"
 import { toast } from "@/lib/notify"
@@ -10,6 +11,10 @@ import { toast } from "@/lib/notify"
 type Props = {
   values: Values
   onJumpToStep: (step: number) => void
+  stories: StorySuggestion[]
+  storiesLoading: boolean
+  onGenerateStories: () => void
+  onRemoveStory: (index: number) => void
 }
 
 async function copy(text: string, label: string) {
@@ -46,7 +51,11 @@ function CopyCard({ title, description, text, preview }: { title: string; descri
   )
 }
 
-export function StepExport({ values, onJumpToStep }: Props) {
+function storyText(s: StorySuggestion): string {
+  return `${s.titel}\n\n${s.beschreibung}`
+}
+
+export function StepExport({ values, onJumpToStep, stories, storiesLoading, onGenerateStories, onRemoveStory }: Props) {
   const [withLeitfragen, setWithLeitfragen] = useState(true)
   const missing = missingRequired(values)
   const required = requiredFields(values)
@@ -117,6 +126,68 @@ export function StepExport({ values, onJumpToStep }: Props) {
         text={buildAkText(values)}
         preview="block"
       />
+
+      <Card withBorder radius="md" p="lg">
+        <Stack gap="sm">
+          <Group justify="space-between" align="flex-start" wrap="wrap">
+            <Stack gap={2}>
+              <Title order={5}>5 · Story- und Task-Vorschläge</Title>
+              <Text size="xs" c="dimmed">
+                Schlägt auf Basis des geschärften Epics einen Schnitt in Storys und Tasks vor – als Startpunkt für die Planung, einzeln kopierbar.
+              </Text>
+            </Stack>
+            <Button
+              size="xs"
+              variant={stories.length > 0 ? "default" : "filled"}
+              loading={storiesLoading}
+              leftSection={<SparklesIcon size={14} />}
+              onClick={onGenerateStories}
+            >
+              {stories.length > 0 ? "Neu vorschlagen" : "Storys vorschlagen"}
+            </Button>
+          </Group>
+          {stories.length === 0 && !storiesLoading && (
+            <Text size="sm" c="dimmed">
+              Noch keine Vorschläge. Am besten erst alle Pflichtfelder schärfen, dann liefern die Vorschläge die besten Ergebnisse.
+            </Text>
+          )}
+          {stories.length > 0 && (
+            <Stack gap="xs">
+              {stories.map((s, i) => (
+                <Paper key={i} withBorder radius="md" p="sm">
+                  <Group align="flex-start" wrap="nowrap" gap="sm">
+                    <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+                      <Group gap={8} wrap="nowrap">
+                        <Badge size="sm" variant="light" color={s.typ === "Story" ? "indigo" : "gray"}>{s.typ}</Badge>
+                        <Text size="sm" fw={600} style={{ minWidth: 0 }}>{s.titel}</Text>
+                      </Group>
+                      <Text size="sm" c="dimmed">{s.beschreibung}</Text>
+                    </Stack>
+                    <Group gap={4} wrap="nowrap">
+                      <ActionIcon variant="subtle" color="gray" aria-label="Story kopieren" onClick={() => copy(storyText(s), s.titel)}>
+                        <ClipboardCopyIcon size={15} />
+                      </ActionIcon>
+                      <ActionIcon variant="subtle" color="gray" aria-label="Vorschlag entfernen" onClick={() => onRemoveStory(i)}>
+                        <XIcon size={15} />
+                      </ActionIcon>
+                    </Group>
+                  </Group>
+                </Paper>
+              ))}
+              <Group justify="flex-end">
+                <Button
+                  variant="default"
+                  size="xs"
+                  leftSection={<ClipboardCopyIcon size={14} />}
+                  onClick={() => copy(stories.map(storyText).join("\n\n---\n\n"), "Alle Vorschläge")}
+                >
+                  Alle kopieren
+                </Button>
+              </Group>
+            </Stack>
+          )}
+        </Stack>
+      </Card>
     </Stack>
   )
 }

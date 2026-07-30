@@ -10,7 +10,8 @@ import {
   RotateCcwIcon, RulerIcon, SaveIcon, SirenIcon, TicketIcon, UsersIcon, type LucideIcon,
 } from "lucide-react"
 
-import type { AiResult } from "@/lib/ai"
+import { aiStories, type AiResult, type StorySuggestion } from "@/lib/ai"
+import { buildWikiDescription } from "@/lib/exportJira"
 import type { Backend, CommentRec, EpicRecord, EpicStatus, PresenceUser, Profile } from "@/lib/backend"
 import {
   FIELDS, PANELS, completionPercent, defaultValues, isEmpty, missingRequired, OP_STATUS, OP_TYPEN, stepOfField,
@@ -59,6 +60,8 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [openSection, setOpenSection] = useState<string | null>(null)
   const [others, setOthers] = useState<PresenceUser[]>([])
+  const [stories, setStories] = useState<StorySuggestion[]>(epic?.data.stories ?? [])
+  const [storiesLoading, setStoriesLoading] = useState(false)
   // Für Realtime-Handler: aktueller Stand ohne stale closures
   const dirtyRef = useRef(dirty)
   const lastKnownUpdate = useRef<string | null>(epic?.updated_at ?? null)
@@ -106,6 +109,7 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
         setValues({ ...defaultValues(), ...(fresh.data.values ?? {}) })
         setSource(fresh.data.source ?? {})
         setIdea(fresh.data.idea ?? "")
+        setStories(fresh.data.stories ?? [])
         setStatus(fresh.status)
         setLastSaved(new Date(fresh.updated_at))
         toast.info(`${who} hat dieses Epic aktualisiert – die Änderungen wurden übernommen.`)
@@ -239,7 +243,7 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
         nextStatus = "entwurf"
         toast.error("Es fehlen noch Pflichtfelder – das Epic bleibt im Status „Entwurf“.")
       }
-      const data = { values, source, idea }
+      const data = { values, source, idea, stories }
       if (!epicId) {
         const id = await backend.createEpic(title, data, nextStatus)
         setEpicId(id)
@@ -268,9 +272,46 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
     onBack()
   }
 
+  async function generateStories() {
+    if (backend.kind !== "supabase") {
+      toast.error("Story-Vorschläge sind im Demo-Modus ohne Backend nicht verfügbar.")
+      return
+    }
+    setStoriesLoading(true)
+    try {
+      const token = await backend.getAccessToken()
+      if (!token) throw new Error("Keine gültige Sitzung – bitte neu anmelden.")
+      const model = await backend.getAiModel()
+      const result = await aiStories(token, model, `${title}\n\n${buildWikiDescription(values, false)}`)
+      if (result.length === 0) throw new Error("Keine Vorschläge erhalten – bitte erneut versuchen.")
+      setStories(result)
+      setDirty(true)
+      toast.success(`${result.length} Story-/Task-Vorschläge erstellt`)
+    } catch (e) {
+      toast.error("Story-Vorschläge fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setStoriesLoading(false)
+    }
+  }
+
+  function removeStory(index: number) {
+    setStories(s => s.filter((_, i) => i !== index))
+    setDirty(true)
+  }
+
   const stepBody = (n: number) => {
     if (n === 0) return <StepIntake backend={backend} idea={idea} onIdeaChange={onIdeaChange} onAiResult={applyAiResult} />
-    if (n === 5) return <StepExport values={values} onJumpToStep={setStep} />
+    if (n === 5)
+      return (
+        <StepExport
+          values={values}
+          onJumpToStep={setStep}
+          stories={stories}
+          storiesLoading={storiesLoading}
+          onGenerateStories={generateStories}
+          onRemoveStory={removeStory}
+        />
+      )
     return (
       <Stack gap="lg">
         {PANELS.filter(p => p.step === n).map(p => {
