@@ -59,14 +59,20 @@ function OkrForm({ initial, busy, onSave, onCancel }: {
           required
           placeholder="z. B.: Research-Erkenntnisse sind team­übergreifend auffindbar und werden nachweislich genutzt"
           value={form.objective}
-          onChange={e => setForm(f => ({ ...f, objective: e.currentTarget.value }))}
+          onChange={e => {
+            const value = e.currentTarget.value
+            setForm(f => ({ ...f, objective: value }))
+          }}
         />
         <Textarea
           label="Beschreibung (optional)"
           autosize
           minRows={2}
           value={form.description}
-          onChange={e => setForm(f => ({ ...f, description: e.currentTarget.value }))}
+          onChange={e => {
+            const value = e.currentTarget.value
+            setForm(f => ({ ...f, description: value }))
+          }}
         />
         <Stack gap={6}>
           <Text size="sm" fw={500}>Key Results</Text>
