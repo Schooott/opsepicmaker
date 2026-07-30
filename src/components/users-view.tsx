@@ -1,19 +1,12 @@
 // Nutzerverwaltung (nur für Admins sichtbar).
 import { useCallback, useEffect, useState } from "react"
+import {
+  Badge, Button, Card, Group, PasswordInput, Select, SimpleGrid, Skeleton, Stack, Switch, Table, Text, TextInput, Title,
+} from "@mantine/core"
 import { UserPlusIcon } from "lucide-react"
-import { toast } from "sonner"
 
 import { emailToUsername, type Backend, type Profile } from "@/lib/backend"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Spinner } from "@/components/ui/spinner"
-import { Switch } from "@/components/ui/switch"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { toast } from "@/lib/notify"
 
 const ROLE_ITEMS = [
   { label: "Mitglied", value: "member" },
@@ -73,117 +66,111 @@ export function UsersView({ backend, profile }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Neues Konto anlegen</CardTitle>
-          <CardDescription>
-            Vom Admin angelegte Konten sind sofort freigeschaltet. Passwort bitte sicher übermitteln; mindestens 6 Zeichen.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={create}>
-            <FieldGroup className="gap-4 sm:grid sm:grid-cols-3">
-              <Field>
-                <FieldLabel htmlFor="nu-name">Name</FieldLabel>
-                <Input id="nu-name" required value={name} onChange={e => setName(e.target.value)} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="nu-username">Benutzername</FieldLabel>
-                <Input
-                  id="nu-username"
-                  required
-                  pattern="[A-Za-z0-9._\-]+"
-                  title="Nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich"
-                  autoComplete="off"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="nu-pw">Passwort</FieldLabel>
-                <Input id="nu-pw" type="password" required minLength={6} autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} />
-              </Field>
-            </FieldGroup>
-            <div className="mt-4">
-              <Button type="submit" disabled={creating}>
-                {creating ? <Spinner data-icon="inline-start" /> : <UserPlusIcon data-icon="inline-start" />}
+    <Stack gap="lg">
+      <Card withBorder radius="md" p="lg">
+        <form onSubmit={create}>
+          <Stack gap="md">
+            <Stack gap={2}>
+              <Title order={4}>Neues Konto anlegen</Title>
+              <Text size="sm" c="dimmed">
+                Vom Admin angelegte Konten sind sofort freigeschaltet. Passwort bitte sicher übermitteln; mindestens 6 Zeichen.
+              </Text>
+            </Stack>
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+              <TextInput label="Name" required value={name} onChange={e => setName(e.currentTarget.value)} />
+              <TextInput
+                label="Benutzername"
+                required
+                pattern="[A-Za-z0-9._\-]+"
+                title="Nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich"
+                autoComplete="off"
+                value={username}
+                onChange={e => setUsername(e.currentTarget.value)}
+              />
+              <PasswordInput
+                label="Passwort"
+                required
+                minLength={6}
+                autoComplete="new-password"
+                value={password}
+                onChange={e => setPassword(e.currentTarget.value)}
+              />
+            </SimpleGrid>
+            <Group>
+              <Button type="submit" loading={creating} leftSection={<UserPlusIcon size={16} />}>
                 Konto anlegen
               </Button>
-            </div>
-          </form>
-        </CardContent>
+            </Group>
+          </Stack>
+        </form>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Nutzer</CardTitle>
-          <CardDescription>
-            Rollen und Freischaltung verwalten. Das eigene Konto und der letzte aktive Admin sind geschützt.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Card withBorder radius="md" p="lg">
+        <Stack gap="md">
+          <Stack gap={2}>
+            <Title order={4}>Nutzer</Title>
+            <Text size="sm" c="dimmed">
+              Rollen und Freischaltung verwalten. Das eigene Konto und der letzte aktive Admin sind geschützt.
+            </Text>
+          </Stack>
           {users === null ? (
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-9 w-full" />
-            </div>
+            <Stack gap="xs">
+              <Skeleton h={36} />
+              <Skeleton h={36} />
+            </Stack>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Benutzername</TableHead>
-                  <TableHead>Rolle</TableHead>
-                  <TableHead>Aktiv</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <Table verticalSpacing="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Name</Table.Th>
+                  <Table.Th>Benutzername</Table.Th>
+                  <Table.Th>Rolle</Table.Th>
+                  <Table.Th>Aktiv</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
                 {users.map(u => {
                   const isSelf = u.id === profile.id
                   return (
-                    <TableRow key={u.id}>
-                      <TableCell className="font-medium">
-                        <span className="flex items-center gap-2">
-                          {u.display_name}
-                          {isSelf && <Badge variant="secondary">Du</Badge>}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{emailToUsername(u.email)}</TableCell>
-                      <TableCell>
+                    <Table.Tr key={u.id}>
+                      <Table.Td>
+                        <Group gap={8}>
+                          <Text size="sm" fw={600}>{u.display_name}</Text>
+                          {isSelf && <Badge variant="light" size="sm">Du</Badge>}
+                        </Group>
+                      </Table.Td>
+                      <Table.Td c="dimmed">{emailToUsername(u.email)}</Table.Td>
+                      <Table.Td>
                         {isSelf ? (
                           <Badge>{u.role === "admin" ? "Admin" : "Mitglied"}</Badge>
                         ) : (
-                          <Select items={ROLE_ITEMS} value={u.role} onValueChange={v => update(u.id, { role: v as Profile["role"] })}>
-                            <SelectTrigger size="sm" aria-label={`Rolle von ${u.display_name}`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectGroup>
-                                {ROLE_ITEMS.map(it => (
-                                  <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
-                                ))}
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
+                          <Select
+                            size="xs"
+                            w={130}
+                            data={ROLE_ITEMS}
+                            value={u.role}
+                            allowDeselect={false}
+                            aria-label={`Rolle von ${u.display_name}`}
+                            onChange={v => v && update(u.id, { role: v as Profile["role"] })}
+                          />
                         )}
-                      </TableCell>
-                      <TableCell>
+                      </Table.Td>
+                      <Table.Td>
                         <Switch
                           checked={u.approved}
                           disabled={isSelf}
                           aria-label={`${u.display_name} aktivieren/deaktivieren`}
-                          onCheckedChange={checked => update(u.id, { approved: !!checked })}
+                          onChange={e => update(u.id, { approved: e.currentTarget.checked })}
                         />
-                      </TableCell>
-                    </TableRow>
+                      </Table.Td>
+                    </Table.Tr>
                   )
                 })}
-              </TableBody>
+              </Table.Tbody>
             </Table>
           )}
-        </CardContent>
+        </Stack>
       </Card>
-    </div>
+    </Stack>
   )
 }

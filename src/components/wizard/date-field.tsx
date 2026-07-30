@@ -1,53 +1,59 @@
-// Datums-Hybrid: Freitext-Eingabe (auch "Q4 2026" o. Ä.) plus nativer
-// Kalender-Picker über Popover + Calendar.
+// Datums-Hybrid: Freitext-Eingabe (auch "Q4 2026" o. Ä.) plus Kalender-Picker
+// über Popover + DatePicker.
 import { useState } from "react"
-import { format } from "date-fns"
-import { de } from "date-fns/locale"
+import { ActionIcon, Popover, TextInput } from "@mantine/core"
+import { DatePicker } from "@mantine/dates"
+import dayjs from "dayjs"
 import { CalendarIcon } from "lucide-react"
 
 import { deToDate } from "@/lib/fields"
-import { Calendar } from "@/components/ui/calendar"
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 type Props = {
-  id?: string
+  label?: React.ReactNode
+  description?: string
   value: string
   onChange: (value: string) => void
   invalid?: boolean
   placeholder?: string
+  size?: "xs" | "sm"
+  "aria-label"?: string
 }
 
-export function DateField({ id, value, onChange, invalid, placeholder }: Props) {
+export function DateField({ label, description, value, onChange, invalid, placeholder, size = "sm", ...rest }: Props) {
   const [open, setOpen] = useState(false)
+  const base = deToDate(value)
   return (
-    <InputGroup>
-      <InputGroupInput
-        id={id}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder ?? "TT.MM.JJJJ oder Freitext, z. B. Q4 2026"}
-        aria-invalid={invalid || undefined}
-      />
-      <InputGroupAddon align="inline-end">
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger render={<InputGroupButton size="icon-xs" aria-label="Datum wählen" />}>
-            <CalendarIcon />
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="end">
-            <Calendar
-              mode="single"
-              locale={de}
-              selected={deToDate(value)}
-              defaultMonth={deToDate(value)}
-              onSelect={d => {
-                if (d) onChange(format(d, "dd.MM.yyyy"))
+    <TextInput
+      label={label}
+      description={description}
+      size={size}
+      value={value}
+      error={invalid || undefined}
+      placeholder={placeholder ?? "TT.MM.JJJJ oder Freitext, z. B. Q4 2026"}
+      aria-label={rest["aria-label"]}
+      onChange={e => onChange(e.currentTarget.value)}
+      rightSection={
+        <Popover opened={open} onChange={setOpen} position="bottom-end" withArrow>
+          <Popover.Target>
+            <ActionIcon variant="subtle" color="gray" size={size} aria-label="Datum wählen" onClick={() => setOpen(o => !o)}>
+              <CalendarIcon size={size === "xs" ? 13 : 15} />
+            </ActionIcon>
+          </Popover.Target>
+          <Popover.Dropdown p="xs">
+            <DatePicker
+              value={base ? dayjs(base).format("YYYY-MM-DD") : null}
+              defaultDate={base ? dayjs(base).format("YYYY-MM-DD") : undefined}
+              onChange={val => {
+                if (val) {
+                  const d = dayjs(val)
+                  if (d.isValid()) onChange(d.format("DD.MM.YYYY"))
+                }
                 setOpen(false)
               }}
             />
-          </PopoverContent>
+          </Popover.Dropdown>
         </Popover>
-      </InputGroupAddon>
-    </InputGroup>
+      }
+    />
   )
 }

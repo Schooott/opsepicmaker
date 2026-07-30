@@ -1,12 +1,14 @@
 // Der Epic-Wizard: 6 Schritte entlang der Template-Struktur, Speichern in der
-// Datenbank, Kommentar-Sidebar und Jira-Export.
+// Datenbank, bereichsbezogene Kommentare und Jira-Export.
 import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  Badge, Box, Button, Card, ColorSwatch, Container, Flex, Group, Paper, Stack, Tabs, Text, Title,
+} from "@mantine/core"
 import {
   ArrowLeftIcon, ArrowRightIcon, CircleHelpIcon, ClockIcon, FlagIcon, FlaskConicalIcon, InboxIcon,
   ListChecksIcon, MapPinIcon, MessageSquareIcon, MessagesSquareIcon, PackageIcon, RulerIcon,
   SaveIcon, SirenIcon, TicketIcon, UsersIcon, type LucideIcon,
 } from "lucide-react"
-import { toast } from "sonner"
 
 import type { AiResult } from "@/lib/ai"
 import type { Backend, CommentRec, EpicRecord, Profile } from "@/lib/backend"
@@ -14,12 +16,7 @@ import {
   FIELDS, PANELS, defaultValues, isEmpty, missingRequired, OP_STATUS, OP_TYPEN, stepOfField,
   type FieldValue, type OpRow, type Sources, type Values,
 } from "@/lib/fields"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FieldGroup } from "@/components/ui/field"
-import { Spinner } from "@/components/ui/spinner"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "@/lib/notify"
 import { CommentsPanel } from "./comments-panel"
 import { FieldRenderer } from "./field-renderer"
 import { StepIntake } from "./step-intake"
@@ -209,75 +206,82 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
     if (n === 0) return <StepIntake backend={backend} idea={idea} onIdeaChange={onIdeaChange} onAiResult={applyAiResult} />
     if (n === 5) return <StepExport values={values} onJumpToStep={setStep} />
     return (
-      <div className="flex flex-col gap-6">
+      <Stack gap="lg">
         {PANELS.filter(p => p.step === n).map(p => {
           const Icon = PANEL_ICONS[p.icon]
           const count = comments.filter(c => c.section === p.id).length
           const active = openSection === p.id
           return (
-            <Card key={p.id}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <span aria-hidden className="size-2.5 rounded-full" style={{ background: p.color }} />
-                  <Icon className="text-muted-foreground" />
-                  {p.title}
-                </CardTitle>
-                {p.resp && <CardDescription>Verantwortung: {p.resp}</CardDescription>}
-                <CardAction>
+            <Card key={p.id} withBorder radius="md" p="lg">
+              <Stack gap="md">
+                <Group justify="space-between" align="flex-start" wrap="nowrap">
+                  <Stack gap={2}>
+                    <Group gap={8}>
+                      <ColorSwatch color={p.color} size={10} />
+                      <Icon size={17} color="var(--mantine-color-dimmed)" />
+                      <Title order={4}>{p.title}</Title>
+                    </Group>
+                    {p.resp && <Text size="xs" c="dimmed">Verantwortung: {p.resp}</Text>}
+                  </Stack>
                   <Button
-                    variant={active ? "secondary" : "ghost"}
-                    size="sm"
+                    variant={active ? "light" : "subtle"}
+                    color={active ? "indigo" : "gray"}
+                    size="xs"
                     disabled={!epicId}
                     title={epicId ? `Kommentare zu „${p.title}“` : "Bitte das Epic zuerst speichern"}
+                    leftSection={<MessageSquareIcon size={14} />}
                     onClick={() => setOpenSection(active ? null : p.id)}
                   >
-                    <MessageSquareIcon data-icon="inline-start" />
                     {count}
                   </Button>
-                </CardAction>
-              </CardHeader>
-              <CardContent>
-                <FieldGroup>
+                </Group>
+                <Stack gap="md">
                   {FIELDS.filter(f => f.panel === p.id).map(f => (
                     <FieldRenderer key={f.key} field={f} values={values} source={source} setField={setField} />
                   ))}
-                </FieldGroup>
-              </CardContent>
+                </Stack>
+              </Stack>
             </Card>
           )
         })}
-      </div>
+      </Stack>
     )
   }
 
   const openPanel = openSection ? PANELS.find(p => p.id === openSection) : undefined
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="ghost" onClick={backToList}>
-          <ArrowLeftIcon data-icon="inline-start" />
+    <Stack gap="md">
+      <Group gap="sm">
+        <Button variant="subtle" color="gray" leftSection={<ArrowLeftIcon size={16} />} onClick={backToList}>
           Übersicht
         </Button>
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{title}</h1>
-      </div>
+        <Title order={4} style={{ flex: 1, minWidth: 0 }} lineClamp={1}>{title}</Title>
+      </Group>
 
-      <div className="flex items-start gap-5">
-        <div className="min-w-0 flex-1">
-          <Tabs value={String(step)} onValueChange={v => setStep(Number(v))}>
-            <TabsList className="w-full flex-wrap">
+      <Flex align="flex-start" gap="lg">
+        <Box style={{ flex: 1, minWidth: 0 }}>
+          <Tabs value={String(step)} onChange={v => v != null && setStep(Number(v))}>
+            <Tabs.List>
               {STEPS.map(s => (
-                <TabsTrigger key={s.n} value={String(s.n)}>
+                <Tabs.Tab
+                  key={s.n}
+                  value={String(s.n)}
+                  rightSection={
+                    (missingByStep.get(s.n) ?? 0) > 0 ? (
+                      <Badge size="xs" color="red" variant="light" circle>{missingByStep.get(s.n)}</Badge>
+                    ) : undefined
+                  }
+                >
                   {s.label}
-                  {(missingByStep.get(s.n) ?? 0) > 0 && <Badge variant="destructive">{missingByStep.get(s.n)}</Badge>}
-                </TabsTrigger>
+                </Tabs.Tab>
               ))}
-            </TabsList>
+            </Tabs.List>
           </Tabs>
-          <div className="pt-4 pb-20">{stepBody(step)}</div>
-        </div>
+          <Box pt="md" pb={80}>{stepBody(step)}</Box>
+        </Box>
         {openPanel && (
-          <div className="sticky top-16 hidden w-96 shrink-0 md:block">
+          <Box w={{ base: 320, lg: 380 }} style={{ position: "sticky", top: 72 }} visibleFrom="sm">
             <CommentsPanel
               panel={openPanel}
               comments={comments.filter(c => c.section === openPanel.id)}
@@ -288,33 +292,32 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
               onUpdate={updateComment}
               onDelete={deleteComment}
             />
-          </div>
+          </Box>
         )}
-      </div>
+      </Flex>
 
-      <div className="fixed inset-x-0 bottom-0 border-t bg-background">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
-          <Button variant="outline" disabled={step === 0} onClick={() => setStep(s => Math.max(0, s - 1))}>
-            <ArrowLeftIcon data-icon="inline-start" />
-            Zurück
-          </Button>
-          <Button variant="outline" disabled={step === 5} onClick={() => setStep(s => Math.min(5, s + 1))}>
-            Weiter
-            <ArrowRightIcon data-icon="inline-end" />
-          </Button>
-          <p className="flex-1 text-center text-xs text-muted-foreground">
-            {dirty
-              ? "Ungespeicherte Änderungen"
-              : lastSaved
-                ? `Gespeichert ${lastSaved.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`
-                : "Noch nicht gespeichert"}
-          </p>
-          <Button onClick={save} disabled={saving}>
-            {saving ? <Spinner data-icon="inline-start" /> : <SaveIcon data-icon="inline-start" />}
-            Speichern
-          </Button>
-        </div>
-      </div>
-    </div>
+      <Paper pos="fixed" bottom={0} left={0} right={0} withBorder radius={0} style={{ zIndex: 100 }}>
+        <Container size="xl" py={10}>
+          <Group gap="sm" wrap="wrap">
+            <Button variant="default" disabled={step === 0} leftSection={<ArrowLeftIcon size={15} />} onClick={() => setStep(s => Math.max(0, s - 1))}>
+              Zurück
+            </Button>
+            <Button variant="default" disabled={step === 5} rightSection={<ArrowRightIcon size={15} />} onClick={() => setStep(s => Math.min(5, s + 1))}>
+              Weiter
+            </Button>
+            <Text size="xs" c="dimmed" style={{ flex: 1 }} ta="center">
+              {dirty
+                ? "Ungespeicherte Änderungen"
+                : lastSaved
+                  ? `Gespeichert ${lastSaved.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`
+                  : "Noch nicht gespeichert"}
+            </Text>
+            <Button loading={saving} leftSection={<SaveIcon size={15} />} onClick={save}>
+              Speichern
+            </Button>
+          </Group>
+        </Container>
+      </Paper>
+    </Stack>
   )
 }

@@ -1,16 +1,12 @@
-// Rendert ein Feld der Registry als shadcn Field mit passendem Control.
+// Rendert ein Feld der Registry als Mantine-Input mit Label, Leitfrage
+// (description) und Pflicht-/Quell-Badges.
+import { ActionIcon, Badge, Button, Checkbox, Group, Select, Stack, Table, Text, Textarea, TextInput } from "@mantine/core"
 import { PlusIcon, SparklesIcon, XIcon } from "lucide-react"
 
-import { isEmpty, OP_STATUS, OP_TYPEN, emptyOpRow, type FieldDef, type FieldValue, type OpRow, type Sources, type Values } from "@/lib/fields"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Field, FieldDescription, FieldLabel, FieldTitle } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Textarea } from "@/components/ui/textarea"
+import {
+  emptyOpRow, isEmpty, OP_STATUS, OP_TYPEN,
+  type FieldDef, type FieldValue, type OpRow, type Sources, type Values,
+} from "@/lib/fields"
 import { DateField } from "./date-field"
 
 export type SetField = (key: string, value: FieldValue, source?: "ai" | "user") => void
@@ -22,23 +18,19 @@ type Props = {
   setField: SetField
 }
 
-function SourceBadge({ src }: { src?: "ai" | "user" }) {
-  if (src === "ai") {
-    return (
-      <Badge variant="secondary">
-        <SparklesIcon /> KI-Vorschlag
-      </Badge>
-    )
-  }
-  if (src === "user") return <Badge variant="outline">Bearbeitet</Badge>
-  return null
-}
-
-function selectItems(f: FieldDef) {
-  const items: Array<{ label: string; value: string | null }> = []
-  if (f.req) items.push({ label: "– bitte wählen –", value: null })
-  for (const o of f.options ?? []) items.push({ label: o, value: o })
-  return items
+function LabelWithBadges({ f, src }: { f: FieldDef; src?: "ai" | "user" }) {
+  return (
+    <Group component="span" gap={6} wrap="wrap">
+      <span>{f.label}</span>
+      {f.req && <Badge size="xs" color="red" variant="light">Pflicht</Badge>}
+      {src === "ai" && (
+        <Badge size="xs" color="grape" variant="light" leftSection={<SparklesIcon size={10} />}>
+          KI-Vorschlag
+        </Badge>
+      )}
+      {src === "user" && <Badge size="xs" color="teal" variant="light">Bearbeitet</Badge>}
+    </Group>
+  )
 }
 
 export function FieldRenderer({ field: f, values, source, setField }: Props) {
@@ -46,219 +38,185 @@ export function FieldRenderer({ field: f, values, source, setField }: Props) {
 
   if (f.type === "grouplabel") {
     return (
-      <Field>
-        <FieldTitle>{f.label}</FieldTitle>
-        {f.hint && <FieldDescription>{f.hint}</FieldDescription>}
-      </Field>
+      <Stack gap={2} mt="xs">
+        <Text fw={600} size="sm">{f.label}</Text>
+        {f.hint && <Text size="xs" c="dimmed">{f.hint}</Text>}
+      </Stack>
     )
   }
 
   const src = source[f.key]
   const missing = !!f.req && isEmpty(values[f.key])
-  const labelRow = (
-    <FieldLabel htmlFor={`f-${f.key}`} className="flex flex-wrap items-center gap-2">
-      {f.label}
-      {f.req && <Badge variant="destructive">Pflicht</Badge>}
-      <SourceBadge src={src} />
-    </FieldLabel>
-  )
+  const label = <LabelWithBadges f={f} src={src} />
 
   if (f.type === "check") {
     return (
-      <Field orientation="horizontal" data-invalid={missing || undefined}>
-        <Checkbox
-          id={`f-${f.key}`}
-          checked={!!values[f.key]}
-          onCheckedChange={checked => setField(f.key, !!checked)}
-        />
-        <FieldLabel htmlFor={`f-${f.key}`} className="flex flex-wrap items-center gap-2 font-normal">
-          {f.label}
-          <SourceBadge src={src} />
-        </FieldLabel>
-      </Field>
+      <Checkbox
+        label={label}
+        description={f.hint}
+        checked={!!values[f.key]}
+        onChange={e => setField(f.key, e.currentTarget.checked)}
+      />
     )
   }
 
   if (f.type === "list") {
     const items = (values[f.key] as string[]) ?? []
     return (
-      <Field data-invalid={missing || undefined}>
-        {labelRow}
-        {f.hint && <FieldDescription>{f.hint}</FieldDescription>}
-        <div className="flex flex-col gap-2">
-          {items.length === 0 && <p className="text-sm text-muted-foreground">Noch keine Einträge.</p>}
-          {items.map((val, i) => (
-            <InputGroup key={i}>
-              <InputGroupInput
-                value={val}
-                aria-label={`${f.label} – Eintrag ${i + 1}`}
-                aria-invalid={missing || undefined}
-                onChange={e => {
-                  const next = [...items]
-                  next[i] = e.target.value
-                  setField(f.key, next)
-                }}
-              />
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  size="icon-xs"
-                  aria-label="Eintrag entfernen"
-                  onClick={() => setField(f.key, items.filter((_, j) => j !== i))}
-                >
-                  <XIcon />
-                </InputGroupButton>
-              </InputGroupAddon>
-            </InputGroup>
-          ))}
-          <div>
-            <Button variant="outline" size="sm" onClick={() => setField(f.key, [...items, ""])}>
-              <PlusIcon data-icon="inline-start" />
-              Eintrag hinzufügen
-            </Button>
-          </div>
-        </div>
-      </Field>
+      <Stack gap={6}>
+        <Stack gap={2}>
+          <Text component="label" size="sm" fw={500}>{label}</Text>
+          {f.hint && <Text size="xs" c="dimmed">{f.hint}</Text>}
+        </Stack>
+        {items.length === 0 && <Text size="sm" c="dimmed">Noch keine Einträge.</Text>}
+        {items.map((val, i) => (
+          <TextInput
+            key={i}
+            value={val}
+            error={missing || undefined}
+            aria-label={`${f.label} – Eintrag ${i + 1}`}
+            onChange={e => {
+              const next = [...items]
+              next[i] = e.currentTarget.value
+              setField(f.key, next)
+            }}
+            rightSection={
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                aria-label="Eintrag entfernen"
+                onClick={() => setField(f.key, items.filter((_, j) => j !== i))}
+              >
+                <XIcon size={15} />
+              </ActionIcon>
+            }
+          />
+        ))}
+        <Group>
+          <Button variant="light" size="xs" leftSection={<PlusIcon size={14} />} onClick={() => setField(f.key, [...items, ""])}>
+            Eintrag hinzufügen
+          </Button>
+        </Group>
+      </Stack>
     )
   }
 
   if (f.type === "optable") {
     const rows = (values[f.key] as OpRow[]) ?? []
     const update = (i: number, patch: Partial<OpRow>) => {
-      const next = rows.map((r, j) => (j === i ? { ...r, ...patch } : r))
-      setField(f.key, next)
+      setField(f.key, rows.map((r, j) => (j === i ? { ...r, ...patch } : r)))
     }
-    const typItems = OP_TYPEN.map(t => ({ label: t, value: t }))
-    const statusItems = OP_STATUS.map(t => ({ label: t, value: t }))
     return (
-      <Field>
-        {labelRow}
-        {f.hint && <FieldDescription>{f.hint}</FieldDescription>}
-        <div className="flex flex-col gap-2">
-          {rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Noch keine Einträge.</p>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-32">Typ</TableHead>
-                    <TableHead className="min-w-40">Beschreibung</TableHead>
-                    <TableHead className="min-w-36">Auswirkung</TableHead>
-                    <TableHead className="min-w-36">Klärung/Validierung</TableHead>
-                    <TableHead className="min-w-24">Owner</TableHead>
-                    <TableHead className="min-w-28">Status</TableHead>
-                    <TableHead className="min-w-36">Fällig bis</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row, i) => (
-                    <TableRow key={i}>
-                      <TableCell>
-                        <Select items={typItems} value={row.typ} onValueChange={v => update(i, { typ: String(v) })}>
-                          <SelectTrigger size="sm" className="w-full" aria-label="Typ">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              {typItems.map(it => (
-                                <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell><Input aria-label="Beschreibung" value={row.beschreibung} onChange={e => update(i, { beschreibung: e.target.value })} /></TableCell>
-                      <TableCell><Input aria-label="Auswirkung" value={row.auswirkung} onChange={e => update(i, { auswirkung: e.target.value })} /></TableCell>
-                      <TableCell><Input aria-label="Klärung/Validierung" value={row.klaerung} onChange={e => update(i, { klaerung: e.target.value })} /></TableCell>
-                      <TableCell><Input aria-label="Owner" value={row.owner} onChange={e => update(i, { owner: e.target.value })} /></TableCell>
-                      <TableCell>
-                        <Select items={statusItems} value={row.status} onValueChange={v => update(i, { status: String(v) })}>
-                          <SelectTrigger size="sm" className="w-full" aria-label="Status">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              {statusItems.map(it => (
-                                <SelectItem key={it.value} value={it.value}>{it.label}</SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <DateField value={row.faellig} onChange={v => update(i, { faellig: v })} placeholder="Datum" />
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon-xs" aria-label="Eintrag entfernen" onClick={() => setField(f.key, rows.filter((_, j) => j !== i))}>
-                          <XIcon />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-          <div>
-            <Button variant="outline" size="sm" onClick={() => setField(f.key, [...rows, emptyOpRow()])}>
-              <PlusIcon data-icon="inline-start" />
-              Eintrag hinzufügen
-            </Button>
-          </div>
-        </div>
-      </Field>
+      <Stack gap={6}>
+        <Stack gap={2}>
+          <Text component="label" size="sm" fw={500}>{label}</Text>
+          {f.hint && <Text size="xs" c="dimmed">{f.hint}</Text>}
+        </Stack>
+        {rows.length === 0 ? (
+          <Text size="sm" c="dimmed">Noch keine Einträge.</Text>
+        ) : (
+          <Table.ScrollContainer minWidth={900}>
+            <Table verticalSpacing={4} withTableBorder>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th w={140}>Typ</Table.Th>
+                  <Table.Th>Beschreibung</Table.Th>
+                  <Table.Th>Auswirkung</Table.Th>
+                  <Table.Th>Klärung/Validierung</Table.Th>
+                  <Table.Th w={110}>Owner</Table.Th>
+                  <Table.Th w={120}>Status</Table.Th>
+                  <Table.Th w={150}>Fällig bis</Table.Th>
+                  <Table.Th w={36} />
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {rows.map((row, i) => (
+                  <Table.Tr key={i}>
+                    <Table.Td>
+                      <Select size="xs" data={OP_TYPEN} value={row.typ} allowDeselect={false} aria-label="Typ"
+                        onChange={v => v && update(i, { typ: v })} />
+                    </Table.Td>
+                    <Table.Td><TextInput size="xs" aria-label="Beschreibung" value={row.beschreibung} onChange={e => update(i, { beschreibung: e.currentTarget.value })} /></Table.Td>
+                    <Table.Td><TextInput size="xs" aria-label="Auswirkung" value={row.auswirkung} onChange={e => update(i, { auswirkung: e.currentTarget.value })} /></Table.Td>
+                    <Table.Td><TextInput size="xs" aria-label="Klärung/Validierung" value={row.klaerung} onChange={e => update(i, { klaerung: e.currentTarget.value })} /></Table.Td>
+                    <Table.Td><TextInput size="xs" aria-label="Owner" value={row.owner} onChange={e => update(i, { owner: e.currentTarget.value })} /></Table.Td>
+                    <Table.Td>
+                      <Select size="xs" data={OP_STATUS} value={row.status} allowDeselect={false} aria-label="Status"
+                        onChange={v => v && update(i, { status: v })} />
+                    </Table.Td>
+                    <Table.Td>
+                      <DateField size="xs" value={row.faellig} onChange={v => update(i, { faellig: v })} placeholder="Datum" aria-label="Fällig bis" />
+                    </Table.Td>
+                    <Table.Td>
+                      <ActionIcon variant="subtle" color="gray" aria-label="Eintrag entfernen" onClick={() => setField(f.key, rows.filter((_, j) => j !== i))}>
+                        <XIcon size={15} />
+                      </ActionIcon>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+        )}
+        <Group>
+          <Button variant="light" size="xs" leftSection={<PlusIcon size={14} />} onClick={() => setField(f.key, [...rows, emptyOpRow()])}>
+            Eintrag hinzufügen
+          </Button>
+        </Group>
+      </Stack>
     )
   }
 
-  // text / textarea / select / date
+  if (f.type === "text") {
+    return (
+      <TextInput
+        label={label}
+        description={f.hint}
+        value={(values[f.key] as string) ?? ""}
+        error={missing || undefined}
+        onChange={e => setField(f.key, e.currentTarget.value)}
+      />
+    )
+  }
+
+  if (f.type === "textarea") {
+    return (
+      <Textarea
+        label={label}
+        description={f.hint}
+        autosize
+        minRows={3}
+        value={(values[f.key] as string) ?? ""}
+        error={missing || undefined}
+        onChange={e => setField(f.key, e.currentTarget.value)}
+      />
+    )
+  }
+
+  if (f.type === "date") {
+    return (
+      <DateField
+        label={label}
+        description={f.hint}
+        value={(values[f.key] as string) ?? ""}
+        invalid={missing}
+        onChange={v => setField(f.key, v)}
+      />
+    )
+  }
+
+  // select
   return (
-    <Field data-invalid={missing || undefined}>
-      {labelRow}
-      {f.hint && <FieldDescription>{f.hint}</FieldDescription>}
-      {f.type === "text" && (
-        <Input
-          id={`f-${f.key}`}
-          value={(values[f.key] as string) ?? ""}
-          aria-invalid={missing || undefined}
-          onChange={e => setField(f.key, e.target.value)}
-        />
-      )}
-      {f.type === "textarea" && (
-        <Textarea
-          id={`f-${f.key}`}
-          value={(values[f.key] as string) ?? ""}
-          aria-invalid={missing || undefined}
-          rows={3}
-          onChange={e => setField(f.key, e.target.value)}
-        />
-      )}
-      {f.type === "date" && (
-        <DateField
-          id={`f-${f.key}`}
-          value={(values[f.key] as string) ?? ""}
-          invalid={missing}
-          onChange={v => setField(f.key, v)}
-        />
-      )}
-      {f.type === "select" && (
-        <Select
-          items={selectItems(f)}
-          value={((values[f.key] as string) || null) as string | null}
-          onValueChange={v => setField(f.key, v == null ? "" : String(v))}
-        >
-          <SelectTrigger id={`f-${f.key}`} className="w-full max-w-xs" aria-invalid={missing || undefined}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {selectItems(f).map(it => (
-                <SelectItem key={String(it.value)} value={it.value}>{it.label}</SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      )}
-    </Field>
+    <Select
+      label={label}
+      description={f.hint}
+      maw={360}
+      data={f.options ?? []}
+      value={((values[f.key] as string) || null)}
+      placeholder={f.req ? "– bitte wählen –" : undefined}
+      allowDeselect={!f.req}
+      error={missing || undefined}
+      onChange={v => setField(f.key, v ?? "")}
+    />
   )
 }

@@ -1,15 +1,11 @@
 // App-Shell: Auth-Zustand, Navigation zwischen Übersicht, Wizard und
 // Nutzerverwaltung.
 import { useEffect, useMemo, useState } from "react"
+import { AppShell, Avatar, Badge, Button, Center, Container, Group, Loader, Text, UnstyledButton } from "@mantine/core"
 import { CompassIcon, LogOutIcon } from "lucide-react"
-import { toast } from "sonner"
 
 import { createBackend, type EpicRecord, type Profile } from "@/lib/backend"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Spinner } from "@/components/ui/spinner"
-import { Toaster } from "@/components/ui/sonner"
+import { toast } from "@/lib/notify"
 import { AdminView } from "@/components/admin-view"
 import { EpicList } from "@/components/epic-list"
 import { LoginView } from "@/components/login-view"
@@ -48,83 +44,88 @@ export function App() {
 
   if (booting) {
     return (
-      <div className="flex min-h-svh items-center justify-center">
-        <Spinner className="size-6" />
-      </div>
+      <Center mih="100svh">
+        <Loader />
+      </Center>
     )
   }
 
   if (!profile) {
-    return (
-      <>
-        <LoginView backend={backend} onLogin={setProfile} />
-        <Toaster />
-      </>
-    )
+    return <LoginView backend={backend} onLogin={setProfile} />
   }
 
   const initials =
     profile.display_name.split(/\s+/).map(p => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"
 
   return (
-    <div className="min-h-svh bg-muted">
-      <header className="sticky top-0 z-10 border-b bg-background">
-        <div className="mx-auto flex max-w-4xl items-center gap-4 px-4 py-2.5">
-          <button
-            type="button"
-            className="flex items-center gap-2 font-semibold"
-            onClick={() => setView({ name: "list" })}
-          >
-            <CompassIcon className="text-primary" /> Ops Epic Maker
-          </button>
-          <nav className="flex items-center gap-1">
-            <Button variant={view.name === "list" ? "secondary" : "ghost"} size="sm" onClick={() => setView({ name: "list" })}>
-              Epics
-            </Button>
-            {profile.role === "admin" && (
-              <Button variant={view.name === "admin" ? "secondary" : "ghost"} size="sm" onClick={() => setView({ name: "admin" })}>
-                Admin
+    <AppShell header={{ height: 56 }} padding={0}>
+      <AppShell.Header>
+        <Container size="xl" h="100%">
+          <Group h="100%" gap="lg">
+            <UnstyledButton onClick={() => setView({ name: "list" })}>
+              <Group gap={8}>
+                <CompassIcon size={20} color="var(--mantine-color-indigo-7)" />
+                <Text fw={700}>Ops Epic Maker</Text>
+              </Group>
+            </UnstyledButton>
+            <Group gap={4}>
+              <Button
+                variant={view.name === "list" ? "light" : "subtle"}
+                color={view.name === "list" ? "indigo" : "gray"}
+                size="xs"
+                onClick={() => setView({ name: "list" })}
+              >
+                Epics
               </Button>
-            )}
-          </nav>
-          <div className="ml-auto flex items-center gap-3">
-            {backend.kind === "demo" && <Badge variant="outline">Demo</Badge>}
-            <span className="flex items-center gap-2 text-sm" title={profile.role === "admin" ? "Admin" : "Mitglied"}>
-              <Avatar className="size-6">
-                <AvatarFallback>{initials}</AvatarFallback>
-              </Avatar>
-              {profile.display_name}
-            </span>
-            <Button variant="ghost" size="sm" onClick={logout}>
-              <LogOutIcon data-icon="inline-start" />
-              Abmelden
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className={view.name === "wizard" ? "mx-auto max-w-6xl px-4 py-6" : "mx-auto max-w-4xl px-4 py-6"}>
-        {view.name === "list" && (
-          <EpicList
-            backend={backend}
-            profile={profile}
-            onOpen={openEpic}
-            onNew={() => setView({ name: "wizard", epic: null })}
-          />
-        )}
-        {view.name === "admin" && profile.role === "admin" && <AdminView backend={backend} profile={profile} />}
-        {view.name === "wizard" && (
-          <Wizard
-            key={view.epic?.id ?? "new"}
-            backend={backend}
-            profile={profile}
-            epic={view.epic}
-            onBack={() => setView({ name: "list" })}
-          />
-        )}
-      </main>
-      <Toaster />
-    </div>
+              {profile.role === "admin" && (
+                <Button
+                  variant={view.name === "admin" ? "light" : "subtle"}
+                  color={view.name === "admin" ? "indigo" : "gray"}
+                  size="xs"
+                  onClick={() => setView({ name: "admin" })}
+                >
+                  Admin
+                </Button>
+              )}
+            </Group>
+            <Group gap="sm" ml="auto">
+              {backend.kind === "demo" && (
+                <Badge variant="outline" color="yellow">Demo</Badge>
+              )}
+              <Group gap={8} title={profile.role === "admin" ? "Admin" : "Mitglied"}>
+                <Avatar size={26} radius="xl" color="indigo">{initials}</Avatar>
+                <Text size="sm">{profile.display_name}</Text>
+              </Group>
+              <Button variant="subtle" color="gray" size="xs" leftSection={<LogOutIcon size={15} />} onClick={logout}>
+                Abmelden
+              </Button>
+            </Group>
+          </Group>
+        </Container>
+      </AppShell.Header>
+      <AppShell.Main>
+        <Container size={view.name === "wizard" ? "xl" : "md"} py="lg">
+          {view.name === "list" && (
+            <EpicList
+              backend={backend}
+              profile={profile}
+              onOpen={openEpic}
+              onNew={() => setView({ name: "wizard", epic: null })}
+            />
+          )}
+          {view.name === "admin" && profile.role === "admin" && <AdminView backend={backend} profile={profile} />}
+          {view.name === "wizard" && (
+            <Wizard
+              key={view.epic?.id ?? "new"}
+              backend={backend}
+              profile={profile}
+              epic={view.epic}
+              onBack={() => setView({ name: "list" })}
+            />
+          )}
+        </Container>
+      </AppShell.Main>
+    </AppShell>
   )
 }
 

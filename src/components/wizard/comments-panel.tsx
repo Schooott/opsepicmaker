@@ -2,18 +2,13 @@
 // Inhalt (kein Overlay). Unterstützt Antworten (eine Ebene, eingerückt) sowie
 // Bearbeiten und Löschen eigener Kommentare.
 import { useEffect, useState } from "react"
+import {
+  ActionIcon, Avatar, Box, Button, Card, Divider, Group, Loader, ScrollArea, Stack, Text, Textarea, ThemeIcon, Title,
+} from "@mantine/core"
 import { CheckIcon, CornerDownRightIcon, MessageSquareIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from "lucide-react"
 
 import type { CommentRec, Profile } from "@/lib/backend"
 import type { PanelDef } from "@/lib/fields"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardAction } from "@/components/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
-import { Spinner } from "@/components/ui/spinner"
-import { Textarea } from "@/components/ui/textarea"
 
 function initials(name: string): string {
   return name.split(/\s+/).map(p => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"
@@ -62,58 +57,54 @@ function CommentItem({
   }
 
   return (
-    <div className={isReply ? "ml-7 border-l-2 pl-3" : ""}>
-      <div className="flex gap-2.5">
-        <Avatar className="size-6">
-          <AvatarFallback>{initials(comment.author_name)}</AvatarFallback>
-        </Avatar>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="text-sm font-medium">{comment.author_name}</span>
-            <span className="text-xs text-muted-foreground">
+    <Box ml={isReply ? 28 : 0} pl={isReply ? 10 : 0} style={isReply ? { borderLeft: "2px solid var(--mantine-color-gray-3)" } : undefined}>
+      <Group gap={10} align="flex-start" wrap="nowrap">
+        <Avatar size={24} radius="xl" color="indigo">{initials(comment.author_name)}</Avatar>
+        <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+          <Group gap={8} wrap="wrap">
+            <Text size="sm" fw={600}>{comment.author_name}</Text>
+            <Text size="xs" c="dimmed">
               {formatTime(comment.created_at)}
               {comment.updated_at ? " · bearbeitet" : ""}
-            </span>
-          </div>
+            </Text>
+          </Group>
           {editing ? (
-            <div className="flex flex-col gap-2">
-              <Textarea rows={3} value={draft} onChange={e => setDraft(e.target.value)} disabled={busy} />
-              <div className="flex gap-2">
-                <Button size="xs" onClick={saveEdit} disabled={busy || !draft.trim()}>
-                  {busy ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}
+            <Stack gap={6}>
+              <Textarea autosize minRows={2} value={draft} disabled={busy} onChange={e => setDraft(e.currentTarget.value)} />
+              <Group gap={6}>
+                <Button size="compact-xs" loading={busy} leftSection={<CheckIcon size={12} />} onClick={saveEdit} disabled={!draft.trim()}>
                   Speichern
                 </Button>
-                <Button size="xs" variant="ghost" onClick={() => { setEditing(false); setDraft(comment.body) }} disabled={busy}>
+                <Button size="compact-xs" variant="subtle" color="gray" disabled={busy} onClick={() => { setEditing(false); setDraft(comment.body) }}>
                   Abbrechen
                 </Button>
-              </div>
-            </div>
+              </Group>
+            </Stack>
           ) : (
-            <p className="text-sm whitespace-pre-wrap">{comment.body}</p>
+            <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>{comment.body}</Text>
           )}
           {!editing && (
-            <div className="flex items-center gap-1">
+            <Group gap={2}>
               {onReply && (
-                <Button variant="ghost" size="xs" onClick={onReply}>
-                  <CornerDownRightIcon data-icon="inline-start" />
+                <Button size="compact-xs" variant="subtle" color="gray" leftSection={<CornerDownRightIcon size={12} />} onClick={onReply}>
                   Antworten
                 </Button>
               )}
               {own && (
-                <Button variant="ghost" size="icon-xs" aria-label="Kommentar bearbeiten" onClick={() => setEditing(true)}>
-                  <PencilIcon />
-                </Button>
+                <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Kommentar bearbeiten" onClick={() => setEditing(true)}>
+                  <PencilIcon size={13} />
+                </ActionIcon>
               )}
               {canDelete && (
-                <Button variant="ghost" size="icon-xs" aria-label="Kommentar löschen" onClick={() => onDelete(comment.id)}>
-                  <Trash2Icon />
-                </Button>
+                <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Kommentar löschen" onClick={() => onDelete(comment.id)}>
+                  <Trash2Icon size={13} />
+                </ActionIcon>
               )}
-            </div>
+            </Group>
           )}
-        </div>
-      </div>
-    </div>
+        </Stack>
+      </Group>
+    </Box>
   )
 }
 
@@ -143,39 +134,35 @@ export function CommentsPanel({ panel, comments, loading, profile, onClose, onAd
   }
 
   return (
-    <Card className="flex max-h-[calc(100svh-8.5rem)] flex-col animate-in slide-in-from-right-4 fade-in duration-200">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MessageSquareIcon className="text-muted-foreground" />
-          Kommentare
-        </CardTitle>
-        <CardDescription className="truncate">{panel.title}</CardDescription>
-        <CardAction>
-          <Button variant="ghost" size="icon" aria-label="Kommentare schließen" onClick={onClose}>
-            <XIcon />
-          </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-3">
-        <ScrollArea className="min-h-0 flex-1 -mx-2 px-2">
+    <Card withBorder radius="md" p="md">
+      <Stack gap="sm">
+        <Group justify="space-between" align="flex-start" wrap="nowrap">
+          <Stack gap={0} style={{ minWidth: 0 }}>
+            <Group gap={6}>
+              <MessageSquareIcon size={16} color="var(--mantine-color-dimmed)" />
+              <Title order={5}>Kommentare</Title>
+            </Group>
+            <Text size="xs" c="dimmed" truncate>{panel.title}</Text>
+          </Stack>
+          <ActionIcon variant="subtle" color="gray" aria-label="Kommentare schließen" onClick={onClose}>
+            <XIcon size={16} />
+          </ActionIcon>
+        </Group>
+        <ScrollArea.Autosize mah="calc(100svh - 24rem)" type="auto">
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
-            </div>
+            <Group justify="center" py="lg"><Loader size="sm" /></Group>
           ) : topLevel.length === 0 ? (
-            <Empty className="py-8">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <MessageSquareIcon />
-                </EmptyMedia>
-                <EmptyTitle>Noch keine Kommentare</EmptyTitle>
-                <EmptyDescription>Hinterlasse den ersten Kommentar zu diesem Bereich.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <Stack align="center" gap={6} py="lg">
+              <ThemeIcon variant="light" color="gray" size="lg" radius="xl">
+                <MessageSquareIcon size={16} />
+              </ThemeIcon>
+              <Text size="sm" fw={600}>Noch keine Kommentare</Text>
+              <Text size="xs" c="dimmed">Hinterlasse den ersten Kommentar zu diesem Bereich.</Text>
+            </Stack>
           ) : (
-            <div className="flex flex-col gap-4 py-1">
+            <Stack gap="md" py={4}>
               {topLevel.map(c => (
-                <div key={c.id} className="flex flex-col gap-3">
+                <Stack key={c.id} gap="sm">
                   <CommentItem
                     comment={c}
                     profile={profile}
@@ -187,39 +174,41 @@ export function CommentsPanel({ panel, comments, loading, profile, onClose, onAd
                   {repliesOf(c.id).map(r => (
                     <CommentItem key={r.id} comment={r} profile={profile} isReply onUpdate={onUpdate} onDelete={onDelete} />
                   ))}
-                </div>
+                </Stack>
               ))}
-            </div>
+            </Stack>
           )}
-        </ScrollArea>
-        <Separator />
-        <div className="flex flex-col gap-2">
+        </ScrollArea.Autosize>
+        <Divider />
+        <Stack gap={6}>
           {replyTo && (
-            <div className="flex items-center gap-2 rounded-md bg-muted px-2.5 py-1.5 text-xs text-muted-foreground">
-              <CornerDownRightIcon className="size-3.5" />
-              <span className="min-w-0 flex-1 truncate">Antwort auf {replyTo.author_name}: „{replyTo.body}“</span>
-              <Button variant="ghost" size="icon-xs" aria-label="Antwort verwerfen" onClick={() => setReplyTo(null)}>
-                <XIcon />
-              </Button>
-            </div>
+            <Group gap={6} wrap="nowrap" bg="gray.1" px={10} py={6} style={{ borderRadius: "var(--mantine-radius-md)" }}>
+              <CornerDownRightIcon size={13} color="var(--mantine-color-dimmed)" />
+              <Text size="xs" c="dimmed" truncate style={{ flex: 1 }}>
+                Antwort auf {replyTo.author_name}: „{replyTo.body}“
+              </Text>
+              <ActionIcon size="xs" variant="subtle" color="gray" aria-label="Antwort verwerfen" onClick={() => setReplyTo(null)}>
+                <XIcon size={12} />
+              </ActionIcon>
+            </Group>
           )}
           <Textarea
             placeholder={replyTo ? "Antwort schreiben …" : "Kommentar schreiben …"}
-            rows={3}
+            autosize
+            minRows={2}
             value={body}
-            onChange={e => setBody(e.target.value)}
+            onChange={e => setBody(e.currentTarget.value)}
             onKeyDown={e => {
               if ((e.metaKey || e.ctrlKey) && e.key === "Enter") send()
             }}
           />
-          <div className="flex justify-end">
-            <Button size="sm" onClick={send} disabled={sending || !body.trim()}>
-              {sending ? <Spinner data-icon="inline-start" /> : <SendIcon data-icon="inline-start" />}
+          <Group justify="flex-end">
+            <Button size="xs" loading={sending} leftSection={<SendIcon size={13} />} onClick={send} disabled={!body.trim()}>
               {replyTo ? "Antworten" : "Senden"}
             </Button>
-          </div>
-        </div>
-      </CardContent>
+          </Group>
+        </Stack>
+      </Stack>
     </Card>
   )
 }
