@@ -3,16 +3,13 @@
 // Bearbeiten und Löschen eigener Kommentare.
 import { useEffect, useState } from "react"
 import {
-  ActionIcon, Avatar, Box, Button, Card, Divider, Group, Loader, ScrollArea, Stack, Text, Textarea, ThemeIcon, Title,
+  ActionIcon, Box, Button, Card, Divider, Group, Loader, ScrollArea, Stack, Text, Textarea, ThemeIcon, Title,
 } from "@mantine/core"
 import { CheckIcon, CornerDownRightIcon, MessageSquareIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from "lucide-react"
 
 import type { CommentRec, Profile } from "@/lib/backend"
 import type { PanelDef } from "@/lib/fields"
-
-function initials(name: string): string {
-  return name.split(/\s+/).map(p => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"
-}
+import { UserAvatar } from "@/components/user-avatar"
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })
@@ -59,7 +56,7 @@ function CommentItem({
   return (
     <Box ml={isReply ? 28 : 0} pl={isReply ? 10 : 0} style={isReply ? { borderLeft: "2px solid var(--mantine-color-gray-3)" } : undefined}>
       <Group gap={10} align="flex-start" wrap="nowrap">
-        <Avatar size={24} radius="xl" color="indigo">{initials(comment.author_name)}</Avatar>
+        <UserAvatar name={comment.author_name} src={comment.author_avatar} size={24} />
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
           <Group gap={8} wrap="wrap">
             <Text size="sm" fw={600}>{comment.author_name}</Text>

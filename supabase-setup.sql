@@ -17,6 +17,7 @@ create table public.profiles (
   id           uuid primary key references auth.users(id) on delete cascade,
   email        text,
   display_name text,
+  avatar_url   text,
   role         text not null default 'member' check (role in ('admin','member')),
   approved     boolean not null default false,
   created_at   timestamptz not null default now()
@@ -91,6 +92,8 @@ create table public.epics (
   id         uuid primary key default gen_random_uuid(),
   title      text not null default 'Ohne Titel',
   data       jsonb not null,
+  -- Entwurf (Standard) oder Abgeschlossen
+  status     text not null default 'entwurf' check (status in ('entwurf', 'abgeschlossen')),
   created_by uuid not null references public.profiles(id),
   updated_by uuid references public.profiles(id),
   created_at timestamptz not null default now(),
@@ -150,6 +153,40 @@ create policy "comments: own update"
 create policy "comments: own or admin delete"
   on public.comments for delete to authenticated
   using (public.is_approved() and (author = auth.uid() or public.is_admin()));
+
+-- ---------- avatars (storage) & self-service profile updates ----------
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+create policy "avatars: public read"
+  on storage.objects for select to public
+  using (bucket_id = 'avatars');
+
+create policy "avatars: upload own"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'avatars' and name = auth.uid()::text || '.jpg' and public.is_approved());
+
+create policy "avatars: update own"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'avatars' and name = auth.uid()::text || '.jpg')
+  with check (bucket_id = 'avatars' and name = auth.uid()::text || '.jpg');
+
+-- Nutzer dürfen NUR display_name/avatar_url des eigenen Profils ändern
+-- (die profiles-Update-Policy bleibt Admins vorbehalten; eine Self-Update-
+-- Policy würde auch role/approved freigeben).
+create or replace function public.update_own_profile(new_display_name text default null, new_avatar_url text default null)
+returns void
+language sql security definer set search_path = public
+as $$
+  update public.profiles
+     set display_name = coalesce(new_display_name, display_name),
+         avatar_url   = coalesce(new_avatar_url, avatar_url)
+   where id = auth.uid();
+$$;
+
+revoke execute on function public.update_own_profile(text, text) from public, anon;
+grant execute on function public.update_own_profile(text, text) to authenticated;
 
 -- ---------- app settings ----------
 -- Zentrale App-Einstellungen (z. B. KI-Modell). Lesen: freigeschaltetes Team,

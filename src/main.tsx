@@ -1,6 +1,6 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
-import { createTheme, MantineProvider } from "@mantine/core"
+import { Card, createTheme, MantineProvider } from "@mantine/core"
 import { DatesProvider } from "@mantine/dates"
 import { ModalsProvider } from "@mantine/modals"
 import { Notifications } from "@mantine/notifications"
@@ -13,11 +13,18 @@ import "./index.css"
 import App from "./App.tsx"
 
 // Template-Blau (#4167c1) liegt nahe an Mantines Indigo-Palette.
+// Seite bleibt weiß (wie im HeaderTabs-Beispiel); Section-Karten sind leicht
+// grau, damit sich die weißen Eingabefelder klar abheben.
 const theme = createTheme({
   primaryColor: "indigo",
   primaryShade: 7,
   fontFamily: "'Geist Variable', ui-sans-serif, system-ui, sans-serif",
   defaultRadius: "md",
+  components: {
+    Card: Card.extend({
+      defaultProps: { bg: "gray.0" },
+    }),
+  },
 })
 
 createRoot(document.getElementById("root")!).render(

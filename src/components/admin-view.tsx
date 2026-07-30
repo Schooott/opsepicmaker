@@ -1,7 +1,7 @@
 // Admin-Bereich: Nutzerverwaltung und zentrale KI-Einstellungen.
 // Wird nur für Admins gerendert (Guard in App.tsx).
 import { useEffect, useState } from "react"
-import { Card, Select, Skeleton, Stack, Tabs, Text, Title } from "@mantine/core"
+import { Card, Radio, Skeleton, Stack, Tabs, Text, Title } from "@mantine/core"
 
 import { AI_MODELS } from "@/lib/ai"
 import type { Backend, Profile } from "@/lib/backend"
@@ -45,15 +45,18 @@ function AiSettings({ backend }: { backend: Backend }) {
         {model === null ? (
           <Skeleton h={36} maw={420} />
         ) : (
-          <Select
+          <Radio.Group
             label="KI-Modell"
             description="Haiku kostet etwa 1–2 Cent pro Epic-Vorbefüllung, Sonnet etwa das Dreifache bei höherer Qualität. Änderungen werden sofort gespeichert."
-            maw={480}
-            data={AI_MODELS.map(m => ({ value: m.value, label: m.label }))}
             value={model}
-            allowDeselect={false}
-            onChange={v => v && change(v)}
-          />
+            onChange={change}
+          >
+            <Stack gap="xs" mt="xs">
+              {AI_MODELS.map(m => (
+                <Radio key={m.value} value={m.value} label={m.label} />
+              ))}
+            </Stack>
+          </Radio.Group>
         )}
       </Stack>
     </Card>

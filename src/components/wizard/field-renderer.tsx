@@ -1,10 +1,14 @@
 // Rendert ein Feld der Registry als Mantine-Input mit Label, Leitfrage
-// (description) und Pflicht-/Quell-Badges.
-import { ActionIcon, Badge, Button, Checkbox, Group, Select, Stack, Table, Text, Textarea, TextInput } from "@mantine/core"
+// (description) und Pflicht-/Quell-Badges. Options-Felder erscheinen je nach
+// variant als Chips oder SegmentedControl (schnellere Erfassung als Dropdown).
+import { useEffect, useRef } from "react"
+import {
+  ActionIcon, Badge, Button, Checkbox, Chip, Group, SegmentedControl, Select, Stack, Table, Text, Textarea, TextInput,
+} from "@mantine/core"
 import { PlusIcon, SparklesIcon, XIcon } from "lucide-react"
 
 import {
-  emptyOpRow, isEmpty, OP_STATUS, OP_TYPEN,
+  emptyOpRow, OP_STATUS, OP_TYPEN,
   type FieldDef, type FieldValue, type OpRow, type Sources, type Values,
 } from "@/lib/fields"
 import { DateField } from "./date-field"
@@ -46,7 +50,6 @@ export function FieldRenderer({ field: f, values, source, setField }: Props) {
   }
 
   const src = source[f.key]
-  const missing = !!f.req && isEmpty(values[f.key])
   const label = <LabelWithBadges f={f} src={src} />
 
   if (f.type === "check") {
@@ -61,44 +64,7 @@ export function FieldRenderer({ field: f, values, source, setField }: Props) {
   }
 
   if (f.type === "list") {
-    const items = (values[f.key] as string[]) ?? []
-    return (
-      <Stack gap={6}>
-        <Stack gap={2}>
-          <Text component="label" size="sm" fw={500}>{label}</Text>
-          {f.hint && <Text size="xs" c="dimmed">{f.hint}</Text>}
-        </Stack>
-        {items.length === 0 && <Text size="sm" c="dimmed">Noch keine Einträge.</Text>}
-        {items.map((val, i) => (
-          <TextInput
-            key={i}
-            value={val}
-            error={missing || undefined}
-            aria-label={`${f.label} – Eintrag ${i + 1}`}
-            onChange={e => {
-              const next = [...items]
-              next[i] = e.currentTarget.value
-              setField(f.key, next)
-            }}
-            rightSection={
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                aria-label="Eintrag entfernen"
-                onClick={() => setField(f.key, items.filter((_, j) => j !== i))}
-              >
-                <XIcon size={15} />
-              </ActionIcon>
-            }
-          />
-        ))}
-        <Group>
-          <Button variant="light" size="xs" leftSection={<PlusIcon size={14} />} onClick={() => setField(f.key, [...items, ""])}>
-            Eintrag hinzufügen
-          </Button>
-        </Group>
-      </Stack>
-    )
+    return <ListField f={f} values={values} setField={setField} label={label} />
   }
 
   if (f.type === "optable") {
@@ -173,7 +139,6 @@ export function FieldRenderer({ field: f, values, source, setField }: Props) {
         label={label}
         description={f.hint}
         value={(values[f.key] as string) ?? ""}
-        error={missing || undefined}
         onChange={e => setField(f.key, e.currentTarget.value)}
       />
     )
@@ -187,7 +152,6 @@ export function FieldRenderer({ field: f, values, source, setField }: Props) {
         autosize
         minRows={3}
         value={(values[f.key] as string) ?? ""}
-        error={missing || undefined}
         onChange={e => setField(f.key, e.currentTarget.value)}
       />
     )
@@ -199,13 +163,48 @@ export function FieldRenderer({ field: f, values, source, setField }: Props) {
         label={label}
         description={f.hint}
         value={(values[f.key] as string) ?? ""}
-        invalid={missing}
         onChange={v => setField(f.key, v)}
       />
     )
   }
 
-  // select
+  // select — Darstellung nach variant
+  if (f.variant === "chips") {
+    const current = (values[f.key] as string) || ""
+    return (
+      <Stack gap={6}>
+        <Stack gap={2}>
+          <Text component="label" size="sm" fw={500} >{label}</Text>
+          {f.hint && <Text size="xs" c="dimmed">{f.hint}</Text>}
+        </Stack>
+        <Chip.Group multiple={false} value={current || null} onChange={v => setField(f.key, typeof v === "string" ? v : "")}>
+          <Group gap="xs">
+            {(f.options ?? []).map(o => (
+              <Chip key={o} value={o} variant="light">{o}</Chip>
+            ))}
+          </Group>
+        </Chip.Group>
+      </Stack>
+    )
+  }
+
+  if (f.variant === "segmented") {
+    return (
+      <Stack gap={6}>
+        <Stack gap={2}>
+          <Text component="label" size="sm" fw={500}>{label}</Text>
+          {f.hint && <Text size="xs" c="dimmed">{f.hint}</Text>}
+        </Stack>
+        <SegmentedControl
+          w="fit-content"
+          data={f.options ?? []}
+          value={(values[f.key] as string) || (f.options?.[0] ?? "")}
+          onChange={v => setField(f.key, v)}
+        />
+      </Stack>
+    )
+  }
+
   return (
     <Select
       label={label}
@@ -215,8 +214,87 @@ export function FieldRenderer({ field: f, values, source, setField }: Props) {
       value={((values[f.key] as string) || null)}
       placeholder={f.req ? "– bitte wählen –" : undefined}
       allowDeselect={!f.req}
-      error={missing || undefined}
       onChange={v => setField(f.key, v ?? "")}
     />
+  )
+}
+
+// Listen-Feld mit flüssiger Erfassung: Enter legt den nächsten Eintrag an
+// und fokussiert ihn direkt.
+function ListField({ f, values, setField, label }: {
+  f: FieldDef
+  values: Values
+  setField: SetField
+  label: React.ReactNode
+}) {
+  const items = (values[f.key] as string[]) ?? []
+  const focusIndex = useRef<number | null>(null)
+  const inputs = useRef<Array<HTMLInputElement | null>>([])
+
+  useEffect(() => {
+    if (focusIndex.current !== null) {
+      inputs.current[focusIndex.current]?.focus()
+      focusIndex.current = null
+    }
+  })
+
+  const addAfter = (i: number) => {
+    const next = [...items]
+    next.splice(i + 1, 0, "")
+    focusIndex.current = i + 1
+    setField(f.key, next)
+  }
+
+  return (
+    <Stack gap={6}>
+      <Stack gap={2}>
+        <Text component="label" size="sm" fw={500}>{label}</Text>
+        {f.hint && <Text size="xs" c="dimmed">{f.hint}</Text>}
+      </Stack>
+      {items.length === 0 && <Text size="sm" c="dimmed">Noch keine Einträge.</Text>}
+      {items.map((val, i) => (
+        <TextInput
+          key={i}
+          value={val}
+            aria-label={`${f.label} – Eintrag ${i + 1}`}
+          ref={el => { inputs.current[i] = el }}
+          onChange={e => {
+            const next = [...items]
+            next[i] = e.currentTarget.value
+            setField(f.key, next)
+          }}
+          onKeyDown={e => {
+            if (e.key === "Enter") {
+              e.preventDefault()
+              addAfter(i)
+            }
+          }}
+          rightSection={
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              aria-label="Eintrag entfernen"
+              onClick={() => setField(f.key, items.filter((_, j) => j !== i))}
+            >
+              <XIcon size={15} />
+            </ActionIcon>
+          }
+        />
+      ))}
+      <Group>
+        <Button
+          variant="light"
+          size="xs"
+          leftSection={<PlusIcon size={14} />}
+          onClick={() => {
+            focusIndex.current = items.length
+            setField(f.key, [...items, ""])
+          }}
+        >
+          Eintrag hinzufügen
+        </Button>
+        {items.length > 0 && <Text size="xs" c="dimmed">Enter legt den nächsten Eintrag an</Text>}
+      </Group>
+    </Stack>
   )
 }

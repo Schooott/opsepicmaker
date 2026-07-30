@@ -4,7 +4,7 @@ import {
   ActionIcon, Badge, Button, Card, Group, Skeleton, Stack, Table, Text, ThemeIcon, Title,
 } from "@mantine/core"
 import { modals } from "@mantine/modals"
-import { FilePlus2Icon, MessageSquareIcon, PencilIcon, Trash2Icon } from "lucide-react"
+import { CircleCheckIcon, FilePlus2Icon, MessageSquareIcon, PencilIcon, Trash2Icon } from "lucide-react"
 
 import type { Backend, EpicMeta, Profile } from "@/lib/backend"
 import { toast } from "@/lib/notify"
@@ -93,6 +93,7 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Titel</Table.Th>
+                <Table.Th>Status</Table.Th>
                 <Table.Th>Autor:in</Table.Th>
                 <Table.Th>Aktualisiert</Table.Th>
                 <Table.Th ta="center">Kommentare</Table.Th>
@@ -106,6 +107,15 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                   <Table.Tr key={e.id} style={{ cursor: "pointer" }} onClick={() => onOpen(e.id)}>
                     <Table.Td maw={280}>
                       <Text size="sm" fw={600} truncate>{e.title}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge
+                        variant="light"
+                        color={e.status === "abgeschlossen" ? "teal" : "gray"}
+                        leftSection={e.status === "abgeschlossen" ? <CircleCheckIcon size={11} /> : undefined}
+                      >
+                        {e.status === "abgeschlossen" ? "Abgeschlossen" : "Entwurf"}
+                      </Badge>
                     </Table.Td>
                     <Table.Td>{e.creator_name}</Table.Td>
                     <Table.Td c="dimmed">{formatTime(e.updated_at)}</Table.Td>

@@ -27,6 +27,7 @@ export type Profile = {
   id: string
   email: string
   display_name: string
+  avatar_url?: string | null
   role: "admin" | "member"
   approved: boolean
   created_at?: string
@@ -34,9 +35,12 @@ export type Profile = {
 
 export type EpicData = { values: Values; source: Sources; idea: string }
 
+export type EpicStatus = "entwurf" | "abgeschlossen"
+
 export type EpicMeta = {
   id: string
   title: string
+  status: EpicStatus
   created_at: string
   updated_at: string
   created_by: string
@@ -51,6 +55,7 @@ export type CommentRec = {
   epic_id: string
   author: string
   author_name: string
+  author_avatar?: string | null
   body: string
   /** Panel-ID des Templates, zu dem der Kommentar gehört */
   section: string
@@ -71,8 +76,8 @@ export interface Backend {
   getAccessToken(): Promise<string | null>
   listEpics(): Promise<EpicMeta[]>
   getEpic(id: string): Promise<EpicRecord>
-  createEpic(title: string, data: EpicData): Promise<string>
-  updateEpic(id: string, title: string, data: EpicData): Promise<void>
+  createEpic(title: string, data: EpicData, status: EpicStatus): Promise<string>
+  updateEpic(id: string, title: string, data: EpicData, status: EpicStatus): Promise<void>
   deleteEpic(id: string): Promise<void>
   listComments(epicId: string): Promise<CommentRec[]>
   addComment(epicId: string, section: string, body: string, parentId?: string | null): Promise<void>
@@ -85,6 +90,10 @@ export interface Backend {
   /** Team-weit konfiguriertes KI-Modell */
   getAiModel(): Promise<string>
   setAiModel(model: string): Promise<void>
+  /** Eigenes Passwort ändern */
+  changePassword(newPassword: string): Promise<void>
+  /** Eigenen Avatar hochladen (bereits verkleinertes JPEG); liefert die neue URL */
+  uploadAvatar(blob: Blob): Promise<string>
 }
 
 /* ------------------------------ Supabase ------------------------------ */
@@ -141,16 +150,16 @@ class SupabaseBackend implements Backend {
   async listEpics(): Promise<EpicMeta[]> {
     const { data, error } = await this.sb
       .from("epics")
-      .select("id,title,created_at,updated_at,created_by,creator:profiles!epics_created_by_fkey(display_name),comments(count)")
+      .select("id,title,status,created_at,updated_at,created_by,creator:profiles!epics_created_by_fkey(display_name),comments(count)")
       .order("updated_at", { ascending: false })
     if (error) throw new Error(error.message)
     type Row = {
-      id: string; title: string; created_at: string; updated_at: string; created_by: string
+      id: string; title: string; status: EpicStatus; created_at: string; updated_at: string; created_by: string
       creator: { display_name: string } | null
       comments: { count: number }[]
     }
     return (data as unknown as Row[]).map(r => ({
-      id: r.id, title: r.title, created_at: r.created_at, updated_at: r.updated_at, created_by: r.created_by,
+      id: r.id, title: r.title, status: r.status, created_at: r.created_at, updated_at: r.updated_at, created_by: r.created_by,
       creator_name: r.creator?.display_name ?? "?",
       comment_count: r.comments?.[0]?.count ?? 0,
     }))
@@ -159,34 +168,34 @@ class SupabaseBackend implements Backend {
   async getEpic(id: string): Promise<EpicRecord> {
     const { data, error } = await this.sb
       .from("epics")
-      .select("id,title,data,created_at,updated_at,created_by,creator:profiles!epics_created_by_fkey(display_name),comments(count)")
+      .select("id,title,status,data,created_at,updated_at,created_by,creator:profiles!epics_created_by_fkey(display_name),comments(count)")
       .eq("id", id)
       .single()
     if (error) throw new Error(error.message)
-    const r = data as unknown as { id: string; title: string; data: EpicData; created_at: string; updated_at: string; created_by: string; creator: { display_name: string } | null; comments: { count: number }[] }
+    const r = data as unknown as { id: string; title: string; status: EpicStatus; data: EpicData; created_at: string; updated_at: string; created_by: string; creator: { display_name: string } | null; comments: { count: number }[] }
     return {
-      id: r.id, title: r.title, data: r.data, created_at: r.created_at, updated_at: r.updated_at,
+      id: r.id, title: r.title, status: r.status, data: r.data, created_at: r.created_at, updated_at: r.updated_at,
       created_by: r.created_by, creator_name: r.creator?.display_name ?? "?",
       comment_count: r.comments?.[0]?.count ?? 0,
     }
   }
 
-  async createEpic(title: string, data: EpicData): Promise<string> {
+  async createEpic(title: string, data: EpicData, status: EpicStatus): Promise<string> {
     if (!this.me) throw new Error("Nicht angemeldet.")
     const { data: row, error } = await this.sb
       .from("epics")
-      .insert({ title, data, created_by: this.me.id, updated_by: this.me.id })
+      .insert({ title, data, status, created_by: this.me.id, updated_by: this.me.id })
       .select("id")
       .single()
     if (error) throw new Error(error.message)
     return row.id as string
   }
 
-  async updateEpic(id: string, title: string, data: EpicData): Promise<void> {
+  async updateEpic(id: string, title: string, data: EpicData, status: EpicStatus): Promise<void> {
     if (!this.me) throw new Error("Nicht angemeldet.")
     const { error } = await this.sb
       .from("epics")
-      .update({ title, data, updated_by: this.me.id, updated_at: new Date().toISOString() })
+      .update({ title, data, status, updated_by: this.me.id, updated_at: new Date().toISOString() })
       .eq("id", id)
     if (error) throw new Error(error.message)
   }
@@ -199,19 +208,20 @@ class SupabaseBackend implements Backend {
   async listComments(epicId: string): Promise<CommentRec[]> {
     const { data, error } = await this.sb
       .from("comments")
-      .select("id,epic_id,author,body,section,parent_id,created_at,updated_at,profile:profiles!comments_author_fkey(display_name)")
+      .select("id,epic_id,author,body,section,parent_id,created_at,updated_at,profile:profiles!comments_author_fkey(display_name,avatar_url)")
       .eq("epic_id", epicId)
       .order("created_at", { ascending: true })
     if (error) throw new Error(error.message)
     type Row = {
       id: string; epic_id: string; author: string; body: string; section: string
       parent_id: string | null; created_at: string; updated_at: string | null
-      profile: { display_name: string } | null
+      profile: { display_name: string; avatar_url: string | null } | null
     }
     return (data as unknown as Row[]).map(r => ({
       id: r.id, epic_id: r.epic_id, author: r.author, body: r.body, section: r.section,
       parent_id: r.parent_id, created_at: r.created_at, updated_at: r.updated_at,
       author_name: r.profile?.display_name ?? "?",
+      author_avatar: r.profile?.avatar_url ?? null,
     }))
   }
 
@@ -273,6 +283,29 @@ class SupabaseBackend implements Backend {
     })
     if (error) throw new Error(error.message)
   }
+
+  async changePassword(newPassword: string): Promise<void> {
+    const { error } = await this.sb.auth.updateUser({ password: newPassword })
+    if (error) throw new Error(error.message)
+  }
+
+  async uploadAvatar(blob: Blob): Promise<string> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const path = `${this.me.id}.jpg`
+    const { error } = await this.sb.storage.from("avatars").upload(path, blob, {
+      upsert: true,
+      contentType: "image/jpeg",
+      cacheControl: "3600",
+    })
+    if (error) throw new Error(error.message)
+    // Versions-Parameter, damit Browser-Caches den neuen Avatar laden
+    const { data } = this.sb.storage.from("avatars").getPublicUrl(path)
+    const url = `${data.publicUrl}?v=${Date.now()}`
+    const { error: e2 } = await this.sb.rpc("update_own_profile", { new_avatar_url: url })
+    if (e2) throw new Error(e2.message)
+    this.me = { ...this.me, avatar_url: url }
+    return url
+  }
 }
 
 /* ------------------------------ Demo (lokal) ------------------------------ */
@@ -282,7 +315,7 @@ export const DEMO_LOGIN = { username: "admin", password: "demo" }
 
 type DemoStore = {
   users: Array<Profile & { password: string }>
-  epics: Array<{ id: string; title: string; data: EpicData; created_by: string; created_at: string; updated_at: string }>
+  epics: Array<{ id: string; title: string; data: EpicData; status?: EpicStatus; created_by: string; created_at: string; updated_at: string }>
   comments: CommentRec[]
   session: string | null
   settings?: Record<string, string>
@@ -345,7 +378,8 @@ class DemoBackend implements Backend {
 
   private meta(store: DemoStore, e: DemoStore["epics"][number]): EpicMeta {
     return {
-      id: e.id, title: e.title, created_at: e.created_at, updated_at: e.updated_at, created_by: e.created_by,
+      id: e.id, title: e.title, status: e.status ?? "entwurf",
+      created_at: e.created_at, updated_at: e.updated_at, created_by: e.created_by,
       creator_name: store.users.find(u => u.id === e.created_by)?.display_name ?? "?",
       comment_count: store.comments.filter(c => c.epic_id === e.id).length,
     }
@@ -363,22 +397,23 @@ class DemoBackend implements Backend {
     return { ...this.meta(store, e), data: e.data }
   }
 
-  async createEpic(title: string, data: EpicData): Promise<string> {
+  async createEpic(title: string, data: EpicData, status: EpicStatus): Promise<string> {
     if (!this.me) throw new Error("Nicht angemeldet.")
     const store = this.read()
     const id = crypto.randomUUID()
     const now = new Date().toISOString()
-    store.epics.push({ id, title, data, created_by: this.me.id, created_at: now, updated_at: now })
+    store.epics.push({ id, title, data, status, created_by: this.me.id, created_at: now, updated_at: now })
     this.write(store)
     return id
   }
 
-  async updateEpic(id: string, title: string, data: EpicData): Promise<void> {
+  async updateEpic(id: string, title: string, data: EpicData, status: EpicStatus): Promise<void> {
     const store = this.read()
     const e = store.epics.find(x => x.id === id)
     if (!e) throw new Error("Epic nicht gefunden.")
     e.title = title
     e.data = data
+    e.status = status
     e.updated_at = new Date().toISOString()
     this.write(store)
   }
@@ -394,8 +429,19 @@ class DemoBackend implements Backend {
     const store = this.read()
     return store.comments
       .filter(c => c.epic_id === epicId)
-      // Ältere Demo-Datenstände kennen die neuen Felder noch nicht
-      .map(c => ({ ...c, section: c.section ?? "epic", parent_id: c.parent_id ?? null, updated_at: c.updated_at ?? null }))
+      // Ältere Demo-Datenstände kennen die neuen Felder noch nicht;
+      // Name/Avatar immer frisch aus dem Profil auflösen
+      .map(c => {
+        const u = store.users.find(x => x.id === c.author)
+        return {
+          ...c,
+          section: c.section ?? "epic",
+          parent_id: c.parent_id ?? null,
+          updated_at: c.updated_at ?? null,
+          author_name: u?.display_name ?? c.author_name,
+          author_avatar: u?.avatar_url ?? null,
+        }
+      })
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
   }
 
@@ -457,6 +503,33 @@ class DemoBackend implements Backend {
     const store = this.read()
     store.settings = { ...store.settings, ai_model: validAiModel(model) }
     this.write(store)
+  }
+
+  async changePassword(newPassword: string): Promise<void> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const store = this.read()
+    const u = store.users.find(x => x.id === this.me!.id)
+    if (!u) throw new Error("Nutzer nicht gefunden.")
+    u.password = newPassword
+    this.write(store)
+  }
+
+  async uploadAvatar(blob: Blob): Promise<string> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const url: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(new Error("Bild konnte nicht gelesen werden."))
+      reader.readAsDataURL(blob)
+    })
+    const store = this.read()
+    const u = store.users.find(x => x.id === this.me!.id)
+    if (!u) throw new Error("Nutzer nicht gefunden.")
+    u.avatar_url = url
+    // Bestehende Kommentar-Avatare aktualisieren sich beim nächsten Laden über das Profil
+    this.write(store)
+    this.me = { ...this.me, avatar_url: url }
+    return url
   }
 }
 

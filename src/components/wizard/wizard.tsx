@@ -5,13 +5,13 @@ import {
   Badge, Box, Button, Card, ColorSwatch, Container, Flex, Group, Paper, Stack, Tabs, Text, Title,
 } from "@mantine/core"
 import {
-  ArrowLeftIcon, ArrowRightIcon, CircleHelpIcon, ClockIcon, FlagIcon, FlaskConicalIcon, InboxIcon,
-  ListChecksIcon, MapPinIcon, MessageSquareIcon, MessagesSquareIcon, PackageIcon, RulerIcon,
-  SaveIcon, SirenIcon, TicketIcon, UsersIcon, type LucideIcon,
+  ArrowLeftIcon, ArrowRightIcon, CircleCheckIcon, CircleHelpIcon, ClockIcon, FlagIcon, FlaskConicalIcon,
+  InboxIcon, ListChecksIcon, MapPinIcon, MessageSquareIcon, MessagesSquareIcon, PackageIcon,
+  RotateCcwIcon, RulerIcon, SaveIcon, SirenIcon, TicketIcon, UsersIcon, type LucideIcon,
 } from "lucide-react"
 
 import type { AiResult } from "@/lib/ai"
-import type { Backend, CommentRec, EpicRecord, Profile } from "@/lib/backend"
+import type { Backend, CommentRec, EpicRecord, EpicStatus, Profile } from "@/lib/backend"
 import {
   FIELDS, PANELS, defaultValues, isEmpty, missingRequired, OP_STATUS, OP_TYPEN, stepOfField,
   type FieldValue, type OpRow, type Sources, type Values,
@@ -50,6 +50,7 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
   const [idea, setIdea] = useState(() => epic?.data.idea ?? "")
   const [step, setStep] = useState(epic ? 1 : 0)
   const [epicId, setEpicId] = useState<string | null>(epic?.id ?? null)
+  const [status, setStatus] = useState<EpicStatus>(epic?.status ?? "entwurf")
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(epic ? new Date(epic.updated_at) : null)
@@ -177,19 +178,35 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
     return FIELDS.filter(f => f.type !== "grouplabel" && nextSource[f.key] === "ai" && !isEmpty(nextValues[f.key])).length
   }, [values, source])
 
-  async function save() {
+  const complete = missingRequired(values).length === 0
+
+  async function save(requestedStatus?: EpicStatus) {
     setSaving(true)
     try {
+      let nextStatus = requestedStatus ?? status
+      // Abgeschlossen setzt voraus, dass alle Pflichtfelder gefüllt sind —
+      // sonst fällt das Epic (auch nachträglich) auf Entwurf zurück.
+      if (nextStatus === "abgeschlossen" && !complete) {
+        nextStatus = "entwurf"
+        toast.error("Es fehlen noch Pflichtfelder – das Epic bleibt im Status „Entwurf“.")
+      }
       const data = { values, source, idea }
       if (!epicId) {
-        const id = await backend.createEpic(title, data)
+        const id = await backend.createEpic(title, data, nextStatus)
         setEpicId(id)
       } else {
-        await backend.updateEpic(epicId, title, data)
+        await backend.updateEpic(epicId, title, data, nextStatus)
       }
+      setStatus(nextStatus)
       setDirty(false)
       setLastSaved(new Date())
-      toast.success("Epic gespeichert")
+      toast.success(
+        requestedStatus === "abgeschlossen" && nextStatus === "abgeschlossen"
+          ? "Epic abgeschlossen"
+          : requestedStatus === "entwurf" && status === "abgeschlossen"
+            ? "Epic wieder geöffnet"
+            : "Epic gespeichert",
+      )
     } catch (e) {
       toast.error("Speichern fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)))
     } finally {
@@ -256,7 +273,14 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
         <Button variant="subtle" color="gray" leftSection={<ArrowLeftIcon size={16} />} onClick={backToList}>
           Übersicht
         </Button>
-        <Title order={4} style={{ flex: 1, minWidth: 0 }} lineClamp={1}>{title}</Title>
+        <Title order={4} style={{ minWidth: 0 }} lineClamp={1}>{title}</Title>
+        <Badge
+          variant="light"
+          color={status === "abgeschlossen" ? "teal" : "gray"}
+          leftSection={status === "abgeschlossen" ? <CircleCheckIcon size={11} /> : undefined}
+        >
+          {status === "abgeschlossen" ? "Abgeschlossen" : "Entwurf"}
+        </Badge>
       </Group>
 
       <Flex align="flex-start" gap="lg">
@@ -312,7 +336,24 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
                   ? `Gespeichert ${lastSaved.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`
                   : "Noch nicht gespeichert"}
             </Text>
-            <Button loading={saving} leftSection={<SaveIcon size={15} />} onClick={save}>
+            {status === "abgeschlossen" ? (
+              <Button variant="light" color="gray" loading={saving} leftSection={<RotateCcwIcon size={15} />} onClick={() => save("entwurf")}>
+                Wieder öffnen
+              </Button>
+            ) : (
+              <Button
+                variant="light"
+                color="teal"
+                loading={saving}
+                disabled={!complete}
+                title={complete ? undefined : "Erst möglich, wenn alle Pflichtfelder gefüllt sind"}
+                leftSection={<CircleCheckIcon size={15} />}
+                onClick={() => save("abgeschlossen")}
+              >
+                Abschließen
+              </Button>
+            )}
+            <Button loading={saving} leftSection={<SaveIcon size={15} />} onClick={() => save()}>
               Speichern
             </Button>
           </Group>

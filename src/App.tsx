@@ -1,23 +1,32 @@
-// App-Shell: Auth-Zustand, Navigation zwischen Übersicht, Wizard und
-// Nutzerverwaltung.
+// App-Shell mit Header nach dem Mantine-UI-Beispiel "HeaderTabs":
+// obere Zeile mit Logo und Nutzer-Menü, darunter Outline-Tabs als Navigation.
 import { useEffect, useMemo, useState } from "react"
-import { AppShell, Avatar, Badge, Button, Center, Container, Group, Loader, Text, UnstyledButton } from "@mantine/core"
-import { CompassIcon, LogOutIcon } from "lucide-react"
+import {
+  Burger, Center, Container, Divider, Drawer, Group, Loader, Menu, ScrollArea, Tabs, Text, UnstyledButton,
+} from "@mantine/core"
+import { useDisclosure } from "@mantine/hooks"
+import cx from "clsx"
+import { ChevronDownIcon, CompassIcon, LogOutIcon, SettingsIcon } from "lucide-react"
 
 import { createBackend, type EpicRecord, type Profile } from "@/lib/backend"
 import { toast } from "@/lib/notify"
 import { AdminView } from "@/components/admin-view"
 import { EpicList } from "@/components/epic-list"
 import { LoginView } from "@/components/login-view"
+import { ProfileView } from "@/components/profile-view"
+import { UserAvatar } from "@/components/user-avatar"
 import { Wizard } from "@/components/wizard/wizard"
+import classes from "./components/header-tabs.module.css"
 
-type View = { name: "list" } | { name: "admin" } | { name: "wizard"; epic: EpicRecord | null }
+type View = { name: "list" } | { name: "admin" } | { name: "profile" } | { name: "wizard"; epic: EpicRecord | null }
 
 export function App() {
   const backend = useMemo(() => createBackend(), [])
   const [booting, setBooting] = useState(true)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [view, setView] = useState<View>({ name: "list" })
+  const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false)
+  const [userMenuOpened, setUserMenuOpened] = useState(false)
 
   useEffect(() => {
     backend
@@ -54,78 +63,119 @@ export function App() {
     return <LoginView backend={backend} onLogin={setProfile} />
   }
 
-  const initials =
-    profile.display_name.split(/\s+/).map(p => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?"
+  const tabs = [
+    { value: "list", label: "Epics" },
+    ...(profile.role === "admin" ? [{ value: "admin", label: "Admin" }] : []),
+  ]
+  const activeTab = view.name === "list" || view.name === "admin" ? view.name : null
+
+  function goTo(tab: string | null) {
+    if (tab === "list") setView({ name: "list" })
+    if (tab === "admin") setView({ name: "admin" })
+    closeDrawer()
+  }
 
   return (
-    <AppShell header={{ height: 56 }} padding={0}>
-      <AppShell.Header>
-        <Container size="xl" h="100%">
-          <Group h="100%" gap="lg">
+    <>
+      <div className={classes.header}>
+        <Container className={classes.mainSection} size="xl">
+          <Group justify="space-between">
             <UnstyledButton onClick={() => setView({ name: "list" })}>
               <Group gap={8}>
-                <CompassIcon size={20} color="var(--mantine-color-indigo-7)" />
+                <CompassIcon size={22} color="var(--mantine-color-indigo-7)" />
                 <Text fw={700}>Ops Epic Maker</Text>
               </Group>
             </UnstyledButton>
-            <Group gap={4}>
-              <Button
-                variant={view.name === "list" ? "light" : "subtle"}
-                color={view.name === "list" ? "indigo" : "gray"}
-                size="xs"
-                onClick={() => setView({ name: "list" })}
-              >
-                Epics
-              </Button>
-              {profile.role === "admin" && (
-                <Button
-                  variant={view.name === "admin" ? "light" : "subtle"}
-                  color={view.name === "admin" ? "indigo" : "gray"}
-                  size="xs"
-                  onClick={() => setView({ name: "admin" })}
-                >
-                  Admin
-                </Button>
-              )}
-            </Group>
-            <Group gap="sm" ml="auto">
-              {backend.kind === "demo" && (
-                <Badge variant="outline" color="yellow">Demo</Badge>
-              )}
-              <Group gap={8} title={profile.role === "admin" ? "Admin" : "Mitglied"}>
-                <Avatar size={26} radius="xl" color="indigo">{initials}</Avatar>
-                <Text size="sm">{profile.display_name}</Text>
-              </Group>
-              <Button variant="subtle" color="gray" size="xs" leftSection={<LogOutIcon size={15} />} onClick={logout}>
-                Abmelden
-              </Button>
-            </Group>
+
+            <Burger opened={drawerOpened} onClick={toggleDrawer} hiddenFrom="xs" size="sm" aria-label="Navigation umschalten" />
+
+            <Menu
+              width={220}
+              position="bottom-end"
+              transitionProps={{ transition: "pop-top-right" }}
+              onClose={() => setUserMenuOpened(false)}
+              onOpen={() => setUserMenuOpened(true)}
+              withinPortal
+            >
+              <Menu.Target>
+                <UnstyledButton className={cx(classes.user, { [classes.userActive]: userMenuOpened })}>
+                  <Group gap={7}>
+                    <UserAvatar name={profile.display_name} src={profile.avatar_url} size={20} />
+                    <Text fw={500} size="sm" lh={1} mr={3}>
+                      {profile.display_name}
+                    </Text>
+                    <ChevronDownIcon size={12} strokeWidth={1.5} />
+                  </Group>
+                </UnstyledButton>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>Einstellungen</Menu.Label>
+                <Menu.Item leftSection={<SettingsIcon size={16} strokeWidth={1.5} />} onClick={() => setView({ name: "profile" })}>
+                  Profil-Einstellungen
+                </Menu.Item>
+                <Menu.Item leftSection={<LogOutIcon size={16} strokeWidth={1.5} />} onClick={logout}>
+                  Abmelden
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           </Group>
         </Container>
-      </AppShell.Header>
-      <AppShell.Main>
-        <Container size={view.name === "wizard" ? "xl" : "md"} py="lg">
-          {view.name === "list" && (
-            <EpicList
-              backend={backend}
-              profile={profile}
-              onOpen={openEpic}
-              onNew={() => setView({ name: "wizard", epic: null })}
-            />
-          )}
-          {view.name === "admin" && profile.role === "admin" && <AdminView backend={backend} profile={profile} />}
-          {view.name === "wizard" && (
-            <Wizard
-              key={view.epic?.id ?? "new"}
-              backend={backend}
-              profile={profile}
-              epic={view.epic}
-              onBack={() => setView({ name: "list" })}
-            />
-          )}
+        <Container size="xl">
+          <Tabs
+            value={activeTab}
+            onChange={goTo}
+            variant="outline"
+            visibleFrom="xs"
+            classNames={{
+              root: classes.tabs,
+              list: classes.tabsList,
+              tab: classes.tab,
+            }}
+          >
+            <Tabs.List>
+              {tabs.map(tab => (
+                <Tabs.Tab value={tab.value} key={tab.value}>
+                  {tab.label}
+                </Tabs.Tab>
+              ))}
+            </Tabs.List>
+          </Tabs>
         </Container>
-      </AppShell.Main>
-    </AppShell>
+
+        <Drawer opened={drawerOpened} onClose={closeDrawer} size="100%" padding="md" title="Navigation" hiddenFrom="xs" zIndex={1000000}>
+          <ScrollArea h="calc(100vh - 80px)" mx="-md">
+            <Divider my="sm" />
+            {tabs.map(tab => (
+              <button type="button" key={tab.value} className={classes.drawerLink} onClick={() => goTo(tab.value)}>
+                {tab.label}
+              </button>
+            ))}
+          </ScrollArea>
+        </Drawer>
+      </div>
+
+      <Container size={view.name === "wizard" ? "xl" : "md"} py="lg">
+        {view.name === "list" && (
+          <EpicList
+            backend={backend}
+            profile={profile}
+            onOpen={openEpic}
+            onNew={() => setView({ name: "wizard", epic: null })}
+          />
+        )}
+        {view.name === "admin" && profile.role === "admin" && <AdminView backend={backend} profile={profile} />}
+        {view.name === "profile" && <ProfileView backend={backend} profile={profile} onProfileChange={setProfile} />}
+        {view.name === "wizard" && (
+          <Wizard
+            key={view.epic?.id ?? "new"}
+            backend={backend}
+            profile={profile}
+            epic={view.epic}
+            onBack={() => setView({ name: "list" })}
+          />
+        )}
+      </Container>
+    </>
   )
 }
 

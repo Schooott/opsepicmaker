@@ -19,6 +19,7 @@
     "@mantine/modals": "^9.5.0",
     "@mantine/notifications": "^9.5.0",
     "@supabase/supabase-js": "^2.111.0",
+    "clsx": "^2.1.1",
     "dayjs": "^1.11.21",
     "lucide-react": "^1.27.0",
     "react": "^19.2.6",

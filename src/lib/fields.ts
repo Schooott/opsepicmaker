@@ -31,6 +31,9 @@ export type FieldDef = {
   ai?: string
   req?: boolean
   options?: string[]
+  /** Darstellung von select-Feldern: Chips (alle Optionen sichtbar, 1 Klick)
+      oder SegmentedControl (wenige Optionen, immer ein Wert) statt Dropdown */
+  variant?: "chips" | "segmented"
   showIf?: (v: Values) => boolean
 }
 
@@ -65,7 +68,7 @@ export const FIELDS: FieldDef[] = [
   { key: "epicName", panel: "basis", type: "text", req: true, label: "Epic Name (Kurzname)", hint: "Kurzer Name für Board-Labels, 2–4 Worte.", ai: "Sehr kurzer Epic-Name (2–4 Worte)." },
   // --- Initiative & Ausgangslage
   { key: "initiativeName", panel: "init", type: "text", req: true, label: "Initiative", hint: "Leitfrage: Wie heißt die UX-Ops-Initiative?", ai: "Name der Initiative." },
-  { key: "initiativeBereich", panel: "init", type: "select", options: BEREICHE, req: true, label: "Bereich", hint: "Zuordnung: Research Ops, Design Ops, Governance, Tooling oder Enablement.", ai: "Einer der Werte: " + BEREICHE.join(", ") + "." },
+  { key: "initiativeBereich", panel: "init", type: "select", variant: "chips", options: BEREICHE, req: true, label: "Bereich", hint: "Zuordnung: Research Ops, Design Ops, Governance, Tooling oder Enablement.", ai: "Einer der Werte: " + BEREICHE.join(", ") + "." },
   { key: "ausgangslage", panel: "init", type: "textarea", req: true, label: "Ausgangslage und Problem", hint: "Leitfrage: Welches konkrete Problem bzw. welche Ineffizienz besteht heute, woran zeigt sich dies und warum sollte das Thema jetzt bearbeitet werden?", ai: "Problem, woran es sich zeigt, warum jetzt. Stichpunkte, eine Aussage pro Zeile." },
   // --- Zielgruppen
   { key: "zielgruppePrimaer", panel: "ziel", type: "textarea", req: true, label: "Primäre Zielgruppe", hint: "Leitfrage: Wer soll die neue Lösung, den Prozess oder den Service später hauptsächlich nutzen?", ai: "Primäre Nutzergruppe(n)." },
@@ -101,7 +104,7 @@ export const FIELDS: FieldDef[] = [
   { key: "akzeptanzkriterien", panel: "ak", type: "list", req: true, label: "Outcome-Akzeptanzkriterien", hint: "Verbindliche, überprüfbare Kriterien für die Abnahme – werden in Jira als Checkliste gepflegt.", ai: "3 überprüfbare Outcome-Akzeptanzkriterien." },
   // --- Pilot & Einführung
   { key: "validierung", panel: "pilot", type: "textarea", label: "Validierung", hint: "Leitfrage: Wie werden Problemverständnis, Bedarf und Lösungsansatz überprüft? Welche Zielgruppen werden einbezogen?", ai: "Wie Problem/Lösung validiert werden." },
-  { key: "pilotGeplant", panel: "pilot", type: "select", options: PILOT_OPTIONS, label: "Ist ein Pilot geplant?", hint: "Steuert, ob die Pilot-Details abgefragt werden.", ai: '"Ja", "Nein" oder "Noch offen".' },
+  { key: "pilotGeplant", panel: "pilot", type: "select", variant: "segmented", options: PILOT_OPTIONS, label: "Ist ein Pilot geplant?", hint: "Steuert, ob die Pilot-Details abgefragt werden.", ai: '"Ja", "Nein" oder "Noch offen".' },
   { key: "pilotPartner", panel: "pilot", type: "text", label: "Pilotpartner", showIf: v => v.pilotGeplant === "Ja", hint: "Team oder Bereich für die Pilotierung.", ai: "Pilot-Team/-Bereich (nur wenn genannt)." },
   { key: "pilotUmfang", panel: "pilot", type: "text", label: "Umfang und Dauer des Piloten", showIf: v => v.pilotGeplant === "Ja", ai: "Rahmen des Piloten (nur wenn genannt)." },
   { key: "pilotHypothesen", panel: "pilot", type: "textarea", label: "Zu prüfende Hypothesen / Kriterien", showIf: v => v.pilotGeplant === "Ja", ai: "Hypothesen/Kriterien für den Piloten." },
