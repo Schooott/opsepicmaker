@@ -291,6 +291,8 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
   }, [values, source])
 
   const complete = missingRequired(values).length === 0
+  // Abgeschlossene Epics sind schreibgeschützt – erst „Wieder öffnen“ erlaubt Änderungen
+  const readOnly = status === "abgeschlossen"
 
   async function save(requestedStatus?: EpicStatus) {
     setSaving(true)
@@ -361,18 +363,20 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
   const stepBody = (n: number) => {
     if (n === 0)
       return (
-        <StepIntake
-          backend={backend}
-          idea={idea}
-          onIdeaChange={onIdeaChange}
-          onAiResult={applyAiResult}
-          okrs={okrs}
-          okrId={okrId}
-          onOkrChange={id => {
-            setOkrId(id)
-            setDirty(true)
-          }}
-        />
+        <Box component="fieldset" disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+          <StepIntake
+            backend={backend}
+            idea={idea}
+            onIdeaChange={onIdeaChange}
+            onAiResult={applyAiResult}
+            okrs={okrs}
+            okrId={okrId}
+            onOkrChange={id => {
+              setOkrId(id)
+              setDirty(true)
+            }}
+          />
+        </Box>
       )
     if (n === 5)
       return (
@@ -381,6 +385,7 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
           onJumpToStep={setStep}
           stories={stories}
           storiesLoading={storiesLoading}
+          readOnly={readOnly}
           onGenerateStories={generateStories}
           onRemoveStory={removeStory}
         />
@@ -424,11 +429,13 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
                     </Button>
                   </Indicator>
                 </Group>
-                <Stack gap="md">
-                  {FIELDS.filter(f => f.panel === p.id).map(f => (
-                    <FieldRenderer key={f.key} field={f} values={values} source={source} setField={setField} />
-                  ))}
-                </Stack>
+                <Box component="fieldset" disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+                  <Stack gap="md">
+                    {FIELDS.filter(f => f.panel === p.id).map(f => (
+                      <FieldRenderer key={f.key} field={f} values={values} source={source} setField={setField} />
+                    ))}
+                  </Stack>
+                </Box>
               </Stack>
             </Card>
           )
@@ -549,11 +556,13 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
               Weiter
             </Button>
             <Text size="xs" c="dimmed" style={{ flex: 1 }} ta="center">
-              {dirty
-                ? "Ungespeicherte Änderungen"
-                : lastSaved
-                  ? `Gespeichert ${lastSaved.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`
-                  : "Noch nicht gespeichert"}
+              {readOnly
+                ? "Abgeschlossen – zum Bearbeiten bitte wieder öffnen"
+                : dirty
+                  ? "Ungespeicherte Änderungen"
+                  : lastSaved
+                    ? `Gespeichert ${lastSaved.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`
+                    : "Noch nicht gespeichert"}
             </Text>
             {status === "abgeschlossen" ? (
               <Button variant="light" color="gray" loading={saving} leftSection={<RotateCcwIcon size={15} />} onClick={() => save("entwurf")}>
@@ -572,9 +581,11 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
                 Abschließen
               </Button>
             )}
-            <Button loading={saving} leftSection={<SaveIcon size={15} />} onClick={() => save()}>
-              Speichern
-            </Button>
+            {!readOnly && (
+              <Button loading={saving} leftSection={<SaveIcon size={15} />} onClick={() => save()}>
+                Speichern
+              </Button>
+            )}
           </Group>
         </Container>
       </Paper>

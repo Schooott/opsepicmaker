@@ -1,10 +1,13 @@
 // Übersicht aller gespeicherten Epics des Teams.
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
-  ActionIcon, Badge, Button, Card, Group, Indicator, Menu, RingProgress, Skeleton, Stack, Table, Text, ThemeIcon, Title, Tooltip,
+  ActionIcon, Badge, Button, Card, Group, Indicator, Menu, RingProgress, Select, Skeleton, Stack, Table, Text, TextInput, ThemeIcon, Title, Tooltip,
 } from "@mantine/core"
 import { modals } from "@mantine/modals"
-import { CircleCheckIcon, EllipsisVerticalIcon, FilePlus2Icon, MessageSquareIcon, PencilIcon, TargetIcon, Trash2Icon } from "lucide-react"
+import {
+  ChevronDownIcon, ChevronsUpDownIcon, ChevronUpIcon, CircleCheckIcon, EllipsisVerticalIcon, FilePlus2Icon,
+  MessageSquareIcon, PencilIcon, SearchIcon, TargetIcon, Trash2Icon, XIcon,
+} from "lucide-react"
 
 import type { Backend, EpicMeta, Profile } from "@/lib/backend"
 import { toast } from "@/lib/notify"
@@ -12,6 +15,33 @@ import { UserAvatar } from "@/components/user-avatar"
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })
+}
+
+type SortField = "title" | "okr" | "status" | "progress" | "creator" | "updated"
+type SortDir = "asc" | "desc"
+
+function SortableTh({ label, field, sortBy, sortDir, onSort }: {
+  label: string
+  field: SortField
+  sortBy: SortField
+  sortDir: SortDir
+  onSort: (field: SortField) => void
+}) {
+  const active = sortBy === field
+  return (
+    <Table.Th
+      onClick={() => onSort(field)}
+      style={{ cursor: "pointer", userSelect: "none" }}
+      aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
+    >
+      <Group gap={4} wrap="nowrap">
+        {label}
+        {active
+          ? sortDir === "asc" ? <ChevronUpIcon size={13} /> : <ChevronDownIcon size={13} />
+          : <ChevronsUpDownIcon size={13} style={{ opacity: 0.4 }} />}
+      </Group>
+    </Table.Th>
+  )
 }
 
 type Props = {
@@ -25,6 +55,21 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
   const [epics, setEpics] = useState<EpicMeta[] | null>(null)
   const [unread, setUnread] = useState<Record<string, number>>({})
   const [okrNames, setOkrNames] = useState<Record<string, string>>({})
+  const [query, setQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [okrFilter, setOkrFilter] = useState<string | null>(null)
+  const [authorFilter, setAuthorFilter] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<SortField>("updated")
+  const [sortDir, setSortDir] = useState<SortDir>("desc")
+
+  function toggleSort(field: SortField) {
+    if (sortBy === field) {
+      setSortDir(d => (d === "asc" ? "desc" : "asc"))
+    } else {
+      setSortBy(field)
+      setSortDir(field === "updated" || field === "progress" ? "desc" : "asc")
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -48,6 +93,54 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
 
   // Live-Updates: Liste neu laden, wenn andere Epics/Kommentare/Profile ändern
   useEffect(() => backend.subscribeChanges(["epics", "comments", "profiles"], () => load()), [backend, load])
+
+  const authorOptions = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const e of epics ?? []) seen.set(e.created_by, e.creator_name)
+    return [...seen.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, "de"))
+  }, [epics])
+
+  const okrOptions = useMemo(
+    () => [
+      { value: "none", label: "Ohne OKR" },
+      ...Object.entries(okrNames).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, "de")),
+    ],
+    [okrNames],
+  )
+
+  const shown = useMemo(() => {
+    if (!epics) return null
+    const q = query.trim().toLowerCase()
+    const filtered = epics.filter(e => {
+      if (statusFilter && e.status !== statusFilter) return false
+      if (okrFilter === "none" && e.okr_id) return false
+      if (okrFilter && okrFilter !== "none" && e.okr_id !== okrFilter) return false
+      if (authorFilter && e.created_by !== authorFilter) return false
+      if (!q) return true
+      const okr = e.okr_id ? okrNames[e.okr_id] ?? "" : ""
+      return `${e.title} ${e.creator_name} ${okr}`.toLowerCase().includes(q)
+    })
+    const dir = sortDir === "asc" ? 1 : -1
+    const key = (e: EpicMeta): string | number => {
+      switch (sortBy) {
+        case "title": return e.title.toLowerCase()
+        case "okr": return (e.okr_id ? okrNames[e.okr_id] ?? "" : "").toLowerCase()
+        case "status": return e.status
+        case "progress": return e.progress
+        case "creator": return e.creator_name.toLowerCase()
+        case "updated": return e.updated_at
+      }
+    }
+    return [...filtered].sort((a, b) => {
+      const ka = key(a)
+      const kb = key(b)
+      if (ka < kb) return -1 * dir
+      if (ka > kb) return 1 * dir
+      return 0
+    })
+  }, [epics, query, statusFilter, okrFilter, authorFilter, sortBy, sortDir, okrNames])
+
+  const hasActiveFilter = query.trim() !== "" || statusFilter !== null || okrFilter !== null || authorFilter !== null
 
   function confirmDelete(epic: EpicMeta) {
     modals.openConfirmModal({
@@ -84,6 +177,49 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
       </Group>
 
       <Card withBorder radius="md" p="lg">
+        {epics !== null && epics.length > 0 && (
+          <Group gap="sm" mb="md" wrap="wrap">
+            <TextInput
+              placeholder="Suchen (Titel, OKR, Autor:in) …"
+              leftSection={<SearchIcon size={15} />}
+              value={query}
+              onChange={e => setQuery(e.currentTarget.value)}
+              w={280}
+              rightSection={
+                query ? (
+                  <ActionIcon size="sm" variant="subtle" color="gray" aria-label="Suche leeren" onClick={() => setQuery("")}>
+                    <XIcon size={13} />
+                  </ActionIcon>
+                ) : undefined
+              }
+            />
+            <Select
+              placeholder="Status"
+              data={[{ value: "entwurf", label: "Entwurf" }, { value: "abgeschlossen", label: "Abgeschlossen" }]}
+              value={statusFilter}
+              onChange={setStatusFilter}
+              clearable
+              w={160}
+            />
+            <Select placeholder="OKR" data={okrOptions} value={okrFilter} onChange={setOkrFilter} clearable searchable w={240} />
+            <Select placeholder="Autor:in" data={authorOptions} value={authorFilter} onChange={setAuthorFilter} clearable w={170} />
+            {hasActiveFilter && (
+              <Button
+                variant="subtle"
+                color="gray"
+                size="compact-sm"
+                onClick={() => {
+                  setQuery("")
+                  setStatusFilter(null)
+                  setOkrFilter(null)
+                  setAuthorFilter(null)
+                }}
+              >
+                Zurücksetzen
+              </Button>
+            )}
+          </Group>
+        )}
         {epics === null ? (
           <Stack gap="xs">
             <Skeleton h={36} />
@@ -105,18 +241,25 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
           <Table highlightOnHover verticalSpacing="sm">
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Titel</Table.Th>
-                <Table.Th>OKR</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Ausgefüllt</Table.Th>
-                <Table.Th>Autor:in</Table.Th>
-                <Table.Th>Aktualisiert</Table.Th>
+                <SortableTh label="Titel" field="title" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="OKR" field="okr" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Status" field="status" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Ausgefüllt" field="progress" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Autor:in" field="creator" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <SortableTh label="Aktualisiert" field="updated" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                 <Table.Th ta="center" aria-label="Kommentare" />
                 <Table.Th ta="right" aria-label="Aktionen" />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {epics.map(e => {
+              {shown!.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={8}>
+                    <Text size="sm" c="dimmed" ta="center" py="md">Keine Epics passen zu Suche/Filtern.</Text>
+                  </Table.Td>
+                </Table.Tr>
+              )}
+              {shown!.map(e => {
                 const canDelete = e.created_by === profile.id || profile.role === "admin"
                 return (
                   <Table.Tr key={e.id} style={{ cursor: "pointer" }} onClick={() => onOpen(e.id)}>

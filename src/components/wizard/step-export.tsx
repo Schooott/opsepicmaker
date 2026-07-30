@@ -13,6 +13,8 @@ type Props = {
   onJumpToStep: (step: number) => void
   stories: StorySuggestion[]
   storiesLoading: boolean
+  /** Abgeschlossenes Epic: keine Änderungen an den Vorschlägen, Kopieren bleibt möglich */
+  readOnly: boolean
   onGenerateStories: () => void
   onRemoveStory: (index: number) => void
 }
@@ -55,7 +57,7 @@ function storyText(s: StorySuggestion): string {
   return `${s.titel}\n\n${s.beschreibung}`
 }
 
-export function StepExport({ values, onJumpToStep, stories, storiesLoading, onGenerateStories, onRemoveStory }: Props) {
+export function StepExport({ values, onJumpToStep, stories, storiesLoading, readOnly, onGenerateStories, onRemoveStory }: Props) {
   const [withLeitfragen, setWithLeitfragen] = useState(true)
   const missing = missingRequired(values)
   const required = requiredFields(values)
@@ -136,19 +138,23 @@ export function StepExport({ values, onJumpToStep, stories, storiesLoading, onGe
                 Schlägt auf Basis des geschärften Epics einen Schnitt in Storys und Tasks vor – als Startpunkt für die Planung, einzeln kopierbar.
               </Text>
             </Stack>
-            <Button
-              size="xs"
-              variant={stories.length > 0 ? "default" : "filled"}
-              loading={storiesLoading}
-              leftSection={<SparklesIcon size={14} />}
-              onClick={onGenerateStories}
-            >
-              {stories.length > 0 ? "Neu vorschlagen" : "Storys vorschlagen"}
-            </Button>
+            {!readOnly && (
+              <Button
+                size="xs"
+                variant={stories.length > 0 ? "default" : "filled"}
+                loading={storiesLoading}
+                leftSection={<SparklesIcon size={14} />}
+                onClick={onGenerateStories}
+              >
+                {stories.length > 0 ? "Neu vorschlagen" : "Storys vorschlagen"}
+              </Button>
+            )}
           </Group>
           {stories.length === 0 && !storiesLoading && (
             <Text size="sm" c="dimmed">
-              Noch keine Vorschläge. Am besten erst alle Pflichtfelder schärfen, dann liefern die Vorschläge die besten Ergebnisse.
+              {readOnly
+                ? "Keine Vorschläge vorhanden."
+                : "Noch keine Vorschläge. Am besten erst alle Pflichtfelder schärfen, dann liefern die Vorschläge die besten Ergebnisse."}
             </Text>
           )}
           {stories.length > 0 && (
@@ -167,9 +173,11 @@ export function StepExport({ values, onJumpToStep, stories, storiesLoading, onGe
                       <ActionIcon variant="subtle" color="gray" aria-label="Story kopieren" onClick={() => copy(storyText(s), s.titel)}>
                         <ClipboardCopyIcon size={15} />
                       </ActionIcon>
-                      <ActionIcon variant="subtle" color="gray" aria-label="Vorschlag entfernen" onClick={() => onRemoveStory(i)}>
-                        <XIcon size={15} />
-                      </ActionIcon>
+                      {!readOnly && (
+                        <ActionIcon variant="subtle" color="gray" aria-label="Vorschlag entfernen" onClick={() => onRemoveStory(i)}>
+                          <XIcon size={15} />
+                        </ActionIcon>
+                      )}
                     </Group>
                   </Group>
                 </Paper>
