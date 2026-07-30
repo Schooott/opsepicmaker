@@ -26,7 +26,7 @@ createRoot(document.getElementById("root")!).render(
     <MantineProvider theme={theme}>
       <DatesProvider settings={{ locale: "de" }}>
         <ModalsProvider>
-          <Notifications position="bottom-right" />
+          <Notifications position="top-right" />
           <App />
         </ModalsProvider>
       </DatesProvider>

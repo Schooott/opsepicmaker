@@ -1,10 +1,10 @@
 // Übersicht aller gespeicherten Epics des Teams.
 import { useCallback, useEffect, useState } from "react"
 import {
-  ActionIcon, Badge, Button, Card, Group, Indicator, RingProgress, Skeleton, Stack, Table, Text, ThemeIcon, Title, Tooltip,
+  ActionIcon, Badge, Button, Card, Group, Indicator, Menu, RingProgress, Skeleton, Stack, Table, Text, ThemeIcon, Title, Tooltip,
 } from "@mantine/core"
 import { modals } from "@mantine/modals"
-import { CircleCheckIcon, FilePlus2Icon, MessageSquareIcon, PencilIcon, TargetIcon, Trash2Icon } from "lucide-react"
+import { CircleCheckIcon, EllipsisVerticalIcon, FilePlus2Icon, MessageSquareIcon, PencilIcon, TargetIcon, Trash2Icon } from "lucide-react"
 
 import type { Backend, EpicMeta, Profile } from "@/lib/backend"
 import { toast } from "@/lib/notify"
@@ -111,8 +111,8 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                 <Table.Th>Ausgefüllt</Table.Th>
                 <Table.Th>Autor:in</Table.Th>
                 <Table.Th>Aktualisiert</Table.Th>
-                <Table.Th ta="center">Kommentare</Table.Th>
-                <Table.Th ta="right">Aktionen</Table.Th>
+                <Table.Th ta="center" aria-label="Kommentare" />
+                <Table.Th ta="right" aria-label="Aktionen" />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -120,7 +120,7 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                 const canDelete = e.created_by === profile.id || profile.role === "admin"
                 return (
                   <Table.Tr key={e.id} style={{ cursor: "pointer" }} onClick={() => onOpen(e.id)}>
-                    <Table.Td maw={280}>
+                    <Table.Td maw={460}>
                       <Text size="sm" fw={600} truncate>{e.title}</Text>
                     </Table.Td>
                     <Table.Td maw={240}>
@@ -176,16 +176,25 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                         </Badge>
                       )}
                     </Table.Td>
-                    <Table.Td onClick={ev => ev.stopPropagation()}>
-                      <Group justify="flex-end" gap={4}>
-                        <ActionIcon variant="subtle" color="gray" aria-label="Bearbeiten" onClick={() => onOpen(e.id)}>
-                          <PencilIcon size={16} />
-                        </ActionIcon>
-                        {canDelete && (
-                          <ActionIcon variant="subtle" color="red" aria-label="Löschen" onClick={() => confirmDelete(e)}>
-                            <Trash2Icon size={16} />
-                          </ActionIcon>
-                        )}
+                    <Table.Td onClick={ev => ev.stopPropagation()} w={48}>
+                      <Group justify="flex-end">
+                        <Menu position="bottom-end" withinPortal>
+                          <Menu.Target>
+                            <ActionIcon variant="subtle" color="gray" aria-label="Aktionen">
+                              <EllipsisVerticalIcon size={16} />
+                            </ActionIcon>
+                          </Menu.Target>
+                          <Menu.Dropdown>
+                            <Menu.Item leftSection={<PencilIcon size={14} />} onClick={() => onOpen(e.id)}>
+                              Bearbeiten
+                            </Menu.Item>
+                            {canDelete && (
+                              <Menu.Item color="red" leftSection={<Trash2Icon size={14} />} onClick={() => confirmDelete(e)}>
+                                Löschen
+                              </Menu.Item>
+                            )}
+                          </Menu.Dropdown>
+                        </Menu>
                       </Group>
                     </Table.Td>
                   </Table.Tr>
