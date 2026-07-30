@@ -175,6 +175,14 @@ export function missingRequired(values: Values): FieldDef[] {
   return requiredFields(values).filter(f => isEmpty(values[f.key]))
 }
 
+/** Ausfüllstand in Prozent, bezogen auf die aktuell sichtbaren Pflichtfelder */
+export function completionPercent(values: Values): number {
+  const required = requiredFields(values)
+  if (required.length === 0) return 100
+  const filled = required.filter(f => !isEmpty(values[f.key])).length
+  return Math.round((filled / required.length) * 100)
+}
+
 export function stepOfField(f: FieldDef): number {
   return PANELS.find(p => p.id === f.panel)?.step ?? 1
 }

@@ -1,7 +1,7 @@
 // Anmeldung. Ohne Supabase-Konfiguration läuft die App im lokalen Demo-Modus.
 import { useState } from "react"
 import { Alert, Button, Card, Center, Group, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core"
-import { CompassIcon, LogInIcon } from "lucide-react"
+import { LayersIcon, LogInIcon } from "lucide-react"
 
 import { DEMO_LOGIN, type Backend, type Profile } from "@/lib/backend"
 
@@ -33,7 +33,7 @@ export function LoginView({ backend, onLogin }: Props) {
     <Center mih="100svh" p="md">
       <Stack w={380} gap="md">
         <Group justify="center" gap="xs">
-          <CompassIcon size={22} color="var(--mantine-color-indigo-7)" />
+          <LayersIcon size={22} color="var(--mantine-color-indigo-7)" />
           <Title order={3}>Ops Epic Maker</Title>
         </Group>
         {backend.kind === "demo" && (

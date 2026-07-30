@@ -1,6 +1,6 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
-import { Card, createTheme, MantineProvider } from "@mantine/core"
+import { createTheme, MantineProvider } from "@mantine/core"
 import { DatesProvider } from "@mantine/dates"
 import { ModalsProvider } from "@mantine/modals"
 import { Notifications } from "@mantine/notifications"
@@ -19,11 +19,6 @@ const theme = createTheme({
   primaryColor: "indigo",
   primaryShade: 7,
   defaultRadius: "md",
-  components: {
-    Card: Card.extend({
-      defaultProps: { bg: "gray.0" },
-    }),
-  },
 })
 
 createRoot(document.getElementById("root")!).render(

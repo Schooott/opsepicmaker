@@ -2,11 +2,12 @@
 // obere Zeile mit Logo und Nutzer-Menü, darunter Outline-Tabs als Navigation.
 import { useEffect, useMemo, useState } from "react"
 import {
-  Burger, Center, Container, Divider, Drawer, Group, Loader, Menu, ScrollArea, Tabs, Text, UnstyledButton,
+  ActionIcon, Burger, Center, Container, Divider, Drawer, Group, Loader, Menu, ScrollArea, Tabs, Text, UnstyledButton,
+  useComputedColorScheme, useMantineColorScheme,
 } from "@mantine/core"
 import { useDisclosure } from "@mantine/hooks"
 import cx from "clsx"
-import { ChevronDownIcon, CompassIcon, LogOutIcon, SettingsIcon } from "lucide-react"
+import { ChevronDownIcon, LayersIcon, LogOutIcon, MoonIcon, SettingsIcon, SunIcon } from "lucide-react"
 
 import { createBackend, type EpicRecord, type Profile } from "@/lib/backend"
 import { toast } from "@/lib/notify"
@@ -27,6 +28,8 @@ export function App() {
   const [view, setView] = useState<View>({ name: "list" })
   const [drawerOpened, { toggle: toggleDrawer, close: closeDrawer }] = useDisclosure(false)
   const [userMenuOpened, setUserMenuOpened] = useState(false)
+  const { setColorScheme } = useMantineColorScheme()
+  const colorScheme = useComputedColorScheme("light")
 
   useEffect(() => {
     backend
@@ -82,14 +85,25 @@ export function App() {
           <Group justify="space-between">
             <UnstyledButton onClick={() => setView({ name: "list" })}>
               <Group gap={8}>
-                <CompassIcon size={22} color="var(--mantine-color-indigo-7)" />
+                <LayersIcon size={22} color="var(--mantine-color-indigo-7)" />
                 <Text fw={700}>Ops Epic Maker</Text>
               </Group>
             </UnstyledButton>
 
             <Burger opened={drawerOpened} onClick={toggleDrawer} hiddenFrom="xs" size="sm" aria-label="Navigation umschalten" />
 
-            <Menu
+            <Group gap={4} wrap="nowrap">
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="lg"
+                aria-label={colorScheme === "dark" ? "Zum hellen Modus wechseln" : "Zum dunklen Modus wechseln"}
+                onClick={() => setColorScheme(colorScheme === "dark" ? "light" : "dark")}
+              >
+                {colorScheme === "dark" ? <SunIcon size={18} /> : <MoonIcon size={18} />}
+              </ActionIcon>
+
+              <Menu
               width={220}
               position="bottom-end"
               transitionProps={{ transition: "pop-top-right" }}
@@ -117,7 +131,8 @@ export function App() {
                   Abmelden
                 </Menu.Item>
               </Menu.Dropdown>
-            </Menu>
+              </Menu>
+            </Group>
           </Group>
         </Container>
         <Container size="xl">

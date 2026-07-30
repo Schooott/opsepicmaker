@@ -62,6 +62,18 @@ Deno.serve(async (req: Request) => {
     }),
   })
 
+  // Erfolgreiche Aufrufe für die Admin-Statistik protokollieren (best effort)
+  if (resp.ok) {
+    try {
+      const { data: userData } = await supa.auth.getUser()
+      if (userData?.user) {
+        await supa.from("ai_requests").insert({ user_id: userData.user.id, model: body.model })
+      }
+    } catch (_e) {
+      // Statistik darf den eigentlichen Aufruf nie scheitern lassen
+    }
+  }
+
   const text = await resp.text()
   return new Response(text, {
     status: resp.status,

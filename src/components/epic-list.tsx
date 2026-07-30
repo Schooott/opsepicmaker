@@ -1,13 +1,14 @@
 // Übersicht aller gespeicherten Epics des Teams.
 import { useCallback, useEffect, useState } from "react"
 import {
-  ActionIcon, Badge, Button, Card, Group, Skeleton, Stack, Table, Text, ThemeIcon, Title,
+  ActionIcon, Badge, Button, Card, Group, RingProgress, Skeleton, Stack, Table, Text, ThemeIcon, Title,
 } from "@mantine/core"
 import { modals } from "@mantine/modals"
 import { CircleCheckIcon, FilePlus2Icon, MessageSquareIcon, PencilIcon, Trash2Icon } from "lucide-react"
 
 import type { Backend, EpicMeta, Profile } from "@/lib/backend"
 import { toast } from "@/lib/notify"
+import { UserAvatar } from "@/components/user-avatar"
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })
@@ -94,6 +95,7 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
               <Table.Tr>
                 <Table.Th>Titel</Table.Th>
                 <Table.Th>Status</Table.Th>
+                <Table.Th>Ausgefüllt</Table.Th>
                 <Table.Th>Autor:in</Table.Th>
                 <Table.Th>Aktualisiert</Table.Th>
                 <Table.Th ta="center">Kommentare</Table.Th>
@@ -117,7 +119,23 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                         {e.status === "abgeschlossen" ? "Abgeschlossen" : "Entwurf"}
                       </Badge>
                     </Table.Td>
-                    <Table.Td>{e.creator_name}</Table.Td>
+                    <Table.Td>
+                      <Group gap={6} wrap="nowrap">
+                        <RingProgress
+                          size={28}
+                          thickness={4}
+                          roundCaps
+                          sections={[{ value: e.progress, color: e.progress === 100 ? "teal" : "indigo" }]}
+                        />
+                        <Text size="sm" c="dimmed" w={38}>{e.progress} %</Text>
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap={8} wrap="nowrap">
+                        <UserAvatar name={e.creator_name} src={e.creator_avatar} size={22} />
+                        <Text size="sm">{e.creator_name}</Text>
+                      </Group>
+                    </Table.Td>
                     <Table.Td c="dimmed">{formatTime(e.updated_at)}</Table.Td>
                     <Table.Td ta="center">
                       <Badge variant="outline" color="gray" leftSection={<MessageSquareIcon size={12} />}>

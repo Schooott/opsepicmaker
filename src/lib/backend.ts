@@ -4,7 +4,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { SUPABASE_ANON_KEY, SUPABASE_URL, USERNAME_EMAIL_DOMAIN, supabaseConfigured } from "@/config"
 import { AI_MODELS } from "./ai"
-import type { Sources, Values } from "./fields"
+import { completionPercent, type Sources, type Values } from "./fields"
 
 const DEFAULT_AI_MODEL = AI_MODELS[0].value
 
@@ -45,10 +45,50 @@ export type EpicMeta = {
   updated_at: string
   created_by: string
   creator_name: string
+  creator_avatar?: string | null
   comment_count: number
+  /** Ausfüllstand der Pflichtfelder in Prozent (0–100) */
+  progress: number
 }
 
 export type EpicRecord = EpicMeta & { data: EpicData }
+
+export type AdminStats = {
+  aiRequestsMonth: number
+  aiRequestsYear: number
+  epicsMonth: number
+  epicsYear: number
+  epicsTotal: number
+  /** Anteil KI-befüllter Felder an allen befüllten Feldern, in Prozent (0–100) */
+  aiFieldShare: number
+}
+
+/** Epic-bezogene Statistik aus (created_at, data)-Zeilen berechnen */
+function epicStats(rows: Array<{ created_at: string; data: EpicData | null }>): Pick<AdminStats, "epicsMonth" | "epicsYear" | "epicsTotal" | "aiFieldShare"> {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const yearStart = new Date(now.getFullYear(), 0, 1)
+  let ai = 0
+  let user = 0
+  let epicsMonth = 0
+  let epicsYear = 0
+  for (const r of rows) {
+    const created = new Date(r.created_at)
+    if (created >= monthStart) epicsMonth++
+    if (created >= yearStart) epicsYear++
+    for (const src of Object.values(r.data?.source ?? {})) {
+      if (src === "ai") ai++
+      else user++
+    }
+  }
+  const filled = ai + user
+  return {
+    epicsMonth,
+    epicsYear,
+    epicsTotal: rows.length,
+    aiFieldShare: filled === 0 ? 0 : Math.round((ai / filled) * 100),
+  }
+}
 
 export type CommentRec = {
   id: string
@@ -87,6 +127,8 @@ export interface Backend {
   /** login = Benutzername oder vollständige E-Mail */
   createUser(name: string, login: string, password: string): Promise<void>
   updateProfile(id: string, patch: Partial<Pick<Profile, "role" | "approved" | "display_name">>): Promise<void>
+  /** Nutzungs-Statistik für den Admin-Bereich */
+  getAdminStats(): Promise<AdminStats>
   /** Team-weit konfiguriertes KI-Modell */
   getAiModel(): Promise<string>
   setAiModel(model: string): Promise<void>
@@ -150,18 +192,20 @@ class SupabaseBackend implements Backend {
   async listEpics(): Promise<EpicMeta[]> {
     const { data, error } = await this.sb
       .from("epics")
-      .select("id,title,status,created_at,updated_at,created_by,creator:profiles!epics_created_by_fkey(display_name),comments(count)")
+      .select("id,title,status,data,created_at,updated_at,created_by,creator:profiles!epics_created_by_fkey(display_name,avatar_url),comments(count)")
       .order("updated_at", { ascending: false })
     if (error) throw new Error(error.message)
     type Row = {
-      id: string; title: string; status: EpicStatus; created_at: string; updated_at: string; created_by: string
-      creator: { display_name: string } | null
+      id: string; title: string; status: EpicStatus; data: EpicData; created_at: string; updated_at: string; created_by: string
+      creator: { display_name: string; avatar_url: string | null } | null
       comments: { count: number }[]
     }
     return (data as unknown as Row[]).map(r => ({
       id: r.id, title: r.title, status: r.status, created_at: r.created_at, updated_at: r.updated_at, created_by: r.created_by,
       creator_name: r.creator?.display_name ?? "?",
+      creator_avatar: r.creator?.avatar_url ?? null,
       comment_count: r.comments?.[0]?.count ?? 0,
+      progress: completionPercent(r.data?.values ?? {}),
     }))
   }
 
@@ -177,6 +221,7 @@ class SupabaseBackend implements Backend {
       id: r.id, title: r.title, status: r.status, data: r.data, created_at: r.created_at, updated_at: r.updated_at,
       created_by: r.created_by, creator_name: r.creator?.display_name ?? "?",
       comment_count: r.comments?.[0]?.count ?? 0,
+      progress: completionPercent(r.data?.values ?? {}),
     }
   }
 
@@ -266,6 +311,25 @@ class SupabaseBackend implements Backend {
   async updateProfile(id: string, patch: Partial<Pick<Profile, "role" | "approved" | "display_name">>): Promise<void> {
     const { error } = await this.sb.from("profiles").update(patch).eq("id", id)
     if (error) throw new Error(error.message)
+  }
+
+  async getAdminStats(): Promise<AdminStats> {
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+    const yearStart = new Date(now.getFullYear(), 0, 1).toISOString()
+    const [aiMonth, aiYear, epicsRes] = await Promise.all([
+      this.sb.from("ai_requests").select("id", { count: "exact", head: true }).gte("created_at", monthStart),
+      this.sb.from("ai_requests").select("id", { count: "exact", head: true }).gte("created_at", yearStart),
+      this.sb.from("epics").select("created_at,data"),
+    ])
+    if (aiMonth.error) throw new Error(aiMonth.error.message)
+    if (aiYear.error) throw new Error(aiYear.error.message)
+    if (epicsRes.error) throw new Error(epicsRes.error.message)
+    return {
+      aiRequestsMonth: aiMonth.count ?? 0,
+      aiRequestsYear: aiYear.count ?? 0,
+      ...epicStats((epicsRes.data ?? []) as Array<{ created_at: string; data: EpicData | null }>),
+    }
   }
 
   async getAiModel(): Promise<string> {
@@ -377,11 +441,14 @@ class DemoBackend implements Backend {
   }
 
   private meta(store: DemoStore, e: DemoStore["epics"][number]): EpicMeta {
+    const creator = store.users.find(u => u.id === e.created_by)
     return {
       id: e.id, title: e.title, status: e.status ?? "entwurf",
       created_at: e.created_at, updated_at: e.updated_at, created_by: e.created_by,
-      creator_name: store.users.find(u => u.id === e.created_by)?.display_name ?? "?",
+      creator_name: creator?.display_name ?? "?",
+      creator_avatar: creator?.avatar_url ?? null,
       comment_count: store.comments.filter(c => c.epic_id === e.id).length,
+      progress: completionPercent(e.data?.values ?? {}),
     }
   }
 
@@ -493,6 +560,15 @@ class DemoBackend implements Backend {
     }
     Object.assign(u, patch)
     this.write(store)
+  }
+
+  async getAdminStats(): Promise<AdminStats> {
+    const store = this.read()
+    return {
+      aiRequestsMonth: 0,
+      aiRequestsYear: 0,
+      ...epicStats(store.epics.map(e => ({ created_at: e.created_at, data: e.data }))),
+    }
   }
 
   async getAiModel(): Promise<string> {

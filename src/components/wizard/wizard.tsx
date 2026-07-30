@@ -2,7 +2,7 @@
 // Datenbank, bereichsbezogene Kommentare und Jira-Export.
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
-  Badge, Box, Button, Card, ColorSwatch, Container, Flex, Group, Paper, Stack, Tabs, Text, Title,
+  Badge, Box, Button, Card, ColorSwatch, Container, Flex, Group, Paper, Progress, Stack, Tabs, Text, Title,
 } from "@mantine/core"
 import {
   ArrowLeftIcon, ArrowRightIcon, CircleCheckIcon, CircleHelpIcon, ClockIcon, FlagIcon, FlaskConicalIcon,
@@ -13,7 +13,7 @@ import {
 import type { AiResult } from "@/lib/ai"
 import type { Backend, CommentRec, EpicRecord, EpicStatus, Profile } from "@/lib/backend"
 import {
-  FIELDS, PANELS, defaultValues, isEmpty, missingRequired, OP_STATUS, OP_TYPEN, stepOfField,
+  FIELDS, PANELS, completionPercent, defaultValues, isEmpty, missingRequired, OP_STATUS, OP_TYPEN, stepOfField,
   type FieldValue, type OpRow, type Sources, type Values,
 } from "@/lib/fields"
 import { toast } from "@/lib/notify"
@@ -129,6 +129,7 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
   }, [values])
 
   const title = String(values.titel || "").trim() || String(values.initiativeName || "").trim() || "Ohne Titel"
+  const progress = completionPercent(values)
 
   const applyAiResult = useCallback((result: AiResult): number => {
     const nextValues = { ...values }
@@ -269,19 +270,42 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
 
   return (
     <Stack gap="md">
-      <Group gap="sm">
-        <Button variant="subtle" color="gray" leftSection={<ArrowLeftIcon size={16} />} onClick={backToList}>
-          Übersicht
-        </Button>
-        <Title order={4} style={{ minWidth: 0 }} lineClamp={1}>{title}</Title>
-        <Badge
-          variant={status === "abgeschlossen" ? "light" : "outline"}
-          color={status === "abgeschlossen" ? "teal" : "gray"}
-          leftSection={status === "abgeschlossen" ? <CircleCheckIcon size={11} /> : undefined}
+      <Stack gap={2}>
+        <Button
+          variant="subtle"
+          color="gray"
+          size="compact-sm"
+          w="fit-content"
+          ml={-8}
+          leftSection={<ArrowLeftIcon size={15} />}
+          onClick={backToList}
         >
-          {status === "abgeschlossen" ? "Abgeschlossen" : "Entwurf"}
-        </Badge>
-      </Group>
+          Zurück zur Übersicht
+        </Button>
+        <Group justify="space-between" align="center" gap="lg" wrap="wrap">
+          <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+            <Title order={2} style={{ minWidth: 0 }} lineClamp={1}>{title}</Title>
+            <Badge
+              variant={status === "abgeschlossen" ? "light" : "outline"}
+              color={status === "abgeschlossen" ? "teal" : "gray"}
+              leftSection={status === "abgeschlossen" ? <CircleCheckIcon size={11} /> : undefined}
+            >
+              {status === "abgeschlossen" ? "Abgeschlossen" : "Entwurf"}
+            </Badge>
+          </Group>
+          <Group gap={8} wrap="nowrap" w={{ base: "100%", sm: 260 }}>
+            <Progress
+              value={progress}
+              size="md"
+              radius="xl"
+              color={progress === 100 ? "teal" : "indigo"}
+              style={{ flex: 1 }}
+              aria-label="Ausfüllstand des Epics"
+            />
+            <Text size="sm" c="dimmed" w={44} ta="right">{progress} %</Text>
+          </Group>
+        </Group>
+      </Stack>
 
       <Flex align="flex-start" gap="lg">
         <Box style={{ flex: 1, minWidth: 0 }}>

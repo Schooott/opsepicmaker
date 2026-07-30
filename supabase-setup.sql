@@ -217,6 +217,27 @@ insert into public.app_settings (key, value)
 values ('ai_model', '"claude-haiku-4-5"'::jsonb)
 on conflict (key) do nothing;
 
+-- ---------- ai_requests: Protokoll der KI-Aufrufe (Admin-Statistik) ----------
+create table public.ai_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  model text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.ai_requests enable row level security;
+
+-- Eigene Aufrufe protokollieren (geschieht serverseitig in der Edge Function
+-- mit dem JWT des Aufrufers).
+create policy "ai_requests_insert_own" on public.ai_requests
+  for insert to authenticated
+  with check (user_id = auth.uid() and public.is_approved());
+
+-- Nur Admins lesen die Statistik.
+create policy "ai_requests_select_admin" on public.ai_requests
+  for select to authenticated
+  using (public.is_admin());
+
 -- ---------- hardening (per Supabase security advisor) ----------
 alter function public.protect_last_admin() set search_path = public;
 
