@@ -112,6 +112,15 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
     return map
   }, [comments, readMarks, profile.id])
 
+  const unreadByStep = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const p of PANELS) {
+      const n = unreadBySection.get(p.id)
+      if (n) map.set(p.step, (map.get(p.step) ?? 0) + n)
+    }
+    return map
+  }, [unreadBySection])
+
   function toggleSection(sectionId: string) {
     if (openSection === sectionId) {
       setOpenSection(null)
@@ -395,6 +404,7 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
                     {p.resp && <Text size="xs" c="dimmed">Verantwortung: {p.resp}</Text>}
                   </Stack>
                   <Indicator
+                    inline
                     label={unreadBySection.get(p.id)}
                     size={16}
                     color="red"
@@ -491,8 +501,17 @@ export function Wizard({ backend, profile, epic, onBack }: Props) {
                   key={s.n}
                   value={String(s.n)}
                   rightSection={
-                    (missingByStep.get(s.n) ?? 0) > 0 ? (
-                      <Badge size="xs" color="red" variant="light" circle>{missingByStep.get(s.n)}</Badge>
+                    (missingByStep.get(s.n) ?? 0) > 0 || (unreadByStep.get(s.n) ?? 0) > 0 ? (
+                      <Group gap={4} wrap="nowrap">
+                        {(missingByStep.get(s.n) ?? 0) > 0 && (
+                          <Badge size="xs" color="red" variant="light" circle>{missingByStep.get(s.n)}</Badge>
+                        )}
+                        {(unreadByStep.get(s.n) ?? 0) > 0 && (
+                          <Badge size="xs" color="red" variant="filled" leftSection={<MessageSquareIcon size={9} />}>
+                            {unreadByStep.get(s.n)}
+                          </Badge>
+                        )}
+                      </Group>
                     ) : undefined
                   }
                 >

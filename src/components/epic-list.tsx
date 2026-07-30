@@ -106,6 +106,7 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Titel</Table.Th>
+                <Table.Th>OKR</Table.Th>
                 <Table.Th>Status</Table.Th>
                 <Table.Th>Ausgefüllt</Table.Th>
                 <Table.Th>Autor:in</Table.Th>
@@ -120,16 +121,18 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                 return (
                   <Table.Tr key={e.id} style={{ cursor: "pointer" }} onClick={() => onOpen(e.id)}>
                     <Table.Td maw={280}>
-                      <Stack gap={2}>
-                        <Text size="sm" fw={600} truncate>{e.title}</Text>
-                        {e.okr_id && okrNames[e.okr_id] && (
-                          <Tooltip label={`Zahlt ein auf: ${okrNames[e.okr_id]}`}>
-                            <Badge variant="light" color="grape" size="sm" leftSection={<TargetIcon size={10} />} maw={190}>
-                              {okrNames[e.okr_id]}
-                            </Badge>
-                          </Tooltip>
-                        )}
-                      </Stack>
+                      <Text size="sm" fw={600} truncate>{e.title}</Text>
+                    </Table.Td>
+                    <Table.Td maw={240}>
+                      {e.okr_id && okrNames[e.okr_id] ? (
+                        <Tooltip label={`Zahlt ein auf: ${okrNames[e.okr_id]}`}>
+                          <Badge variant="light" color="grape" size="sm" leftSection={<TargetIcon size={10} />} maw={230}>
+                            {okrNames[e.okr_id]}
+                          </Badge>
+                        </Tooltip>
+                      ) : (
+                        <Text size="sm" c="dimmed">–</Text>
+                      )}
                     </Table.Td>
                     <Table.Td>
                       <Badge
@@ -161,7 +164,7 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                     <Table.Td ta="center">
                       {(unread[e.id] ?? 0) > 0 ? (
                         <Tooltip label={`${unread[e.id]} neue Kommentare seit deinem letzten Besuch`}>
-                          <Indicator label={unread[e.id]} size={16} color="red" offset={2}>
+                          <Indicator inline label={unread[e.id]} size={16} color="red" offset={2}>
                             <Badge variant="light" color="indigo" leftSection={<MessageSquareIcon size={12} />}>
                               {e.comment_count}
                             </Badge>
