@@ -172,7 +172,7 @@ export function App() {
         </Drawer>
       </div>
 
-      <Container size={view.name === "wizard" || view.name === "list" ? "xl" : "md"} py="lg">
+      <Container size={view.name === "wizard" || view.name === "list" || view.name === "okrs" ? "xl" : "md"} py="lg">
         {view.name === "list" && (
           <EpicList
             backend={backend}
