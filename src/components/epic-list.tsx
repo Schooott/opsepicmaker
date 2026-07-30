@@ -72,18 +72,18 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
   }
 
   return (
-    <Card withBorder radius="md" p="lg">
-      <Stack gap="md">
-        <Group justify="space-between" align="flex-start">
-          <Stack gap={2}>
-            <Title order={4}>Epics</Title>
-            <Text size="sm" c="dimmed">Gespeicherte Entwürfe des Teams – öffnen, weiterbearbeiten, kommentieren.</Text>
-          </Stack>
-          <Button leftSection={<FilePlus2Icon size={16} />} onClick={onNew}>
-            Neues Epic
-          </Button>
-        </Group>
+    <Stack gap="lg">
+      <Group justify="space-between" align="flex-start">
+        <Stack gap={2}>
+          <Title order={4}>Epics</Title>
+          <Text size="sm" c="dimmed">Gespeicherte Entwürfe des Teams – öffnen, weiterbearbeiten, kommentieren.</Text>
+        </Stack>
+        <Button leftSection={<FilePlus2Icon size={16} />} onClick={onNew}>
+          Neues Epic
+        </Button>
+      </Group>
 
+      <Card withBorder radius="md" p="lg">
         {epics === null ? (
           <Stack gap="xs">
             <Skeleton h={36} />
@@ -124,7 +124,7 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                         <Text size="sm" fw={600} truncate>{e.title}</Text>
                         {e.okr_id && okrNames[e.okr_id] && (
                           <Tooltip label={`Zahlt ein auf: ${okrNames[e.okr_id]}`}>
-                            <Badge variant="light" color="grape" size="sm" leftSection={<TargetIcon size={10} />} maw={260}>
+                            <Badge variant="light" color="grape" size="sm" leftSection={<TargetIcon size={10} />} maw={190}>
                               {okrNames[e.okr_id]}
                             </Badge>
                           </Tooltip>
@@ -191,7 +191,7 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
             </Table.Tbody>
           </Table>
         )}
-      </Stack>
-    </Card>
+      </Card>
+    </Stack>
   )
 }
