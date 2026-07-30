@@ -4,7 +4,7 @@ import {
   ActionIcon, Badge, Button, Card, Group, Indicator, RingProgress, Skeleton, Stack, Table, Text, ThemeIcon, Title, Tooltip,
 } from "@mantine/core"
 import { modals } from "@mantine/modals"
-import { CircleCheckIcon, FilePlus2Icon, MessageSquareIcon, PencilIcon, Trash2Icon } from "lucide-react"
+import { CircleCheckIcon, FilePlus2Icon, MessageSquareIcon, PencilIcon, TargetIcon, Trash2Icon } from "lucide-react"
 
 import type { Backend, EpicMeta, Profile } from "@/lib/backend"
 import { toast } from "@/lib/notify"
@@ -24,12 +24,18 @@ type Props = {
 export function EpicList({ backend, profile, onOpen, onNew }: Props) {
   const [epics, setEpics] = useState<EpicMeta[] | null>(null)
   const [unread, setUnread] = useState<Record<string, number>>({})
+  const [okrNames, setOkrNames] = useState<Record<string, string>>({})
 
   const load = useCallback(async () => {
     try {
-      const [list, unreadCounts] = await Promise.all([backend.listEpics(), backend.getUnreadCommentCounts()])
+      const [list, unreadCounts, okrs] = await Promise.all([
+        backend.listEpics(),
+        backend.getUnreadCommentCounts(),
+        backend.listOkrs(),
+      ])
       setEpics(list)
       setUnread(unreadCounts)
+      setOkrNames(Object.fromEntries(okrs.map(o => [o.id, o.objective])))
     } catch (e) {
       toast.error("Laden fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)))
       setEpics([])
@@ -114,7 +120,16 @@ export function EpicList({ backend, profile, onOpen, onNew }: Props) {
                 return (
                   <Table.Tr key={e.id} style={{ cursor: "pointer" }} onClick={() => onOpen(e.id)}>
                     <Table.Td maw={280}>
-                      <Text size="sm" fw={600} truncate>{e.title}</Text>
+                      <Stack gap={2}>
+                        <Text size="sm" fw={600} truncate>{e.title}</Text>
+                        {e.okr_id && okrNames[e.okr_id] && (
+                          <Tooltip label={`Zahlt ein auf: ${okrNames[e.okr_id]}`}>
+                            <Badge variant="light" color="grape" size="sm" leftSection={<TargetIcon size={10} />} maw={260}>
+                              {okrNames[e.okr_id]}
+                            </Badge>
+                          </Tooltip>
+                        )}
+                      </Stack>
                     </Table.Td>
                     <Table.Td>
                       <Badge

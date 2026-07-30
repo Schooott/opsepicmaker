@@ -3,9 +3,9 @@ import { useState } from "react"
 import { ActionIcon, Alert, Button, Card, FileButton, Group, Image, Indicator, List, Paper, Select, Stack, Text, Textarea, Title } from "@mantine/core"
 import { CircleHelpIcon, FileTextIcon, LightbulbIcon, MicIcon, PaperclipIcon, SparklesIcon, SquareIcon, TriangleAlertIcon, XIcon } from "lucide-react"
 
-import { aiPrefill, type AiAttachment, type AiResult } from "@/lib/ai"
+import { aiPrefill, okrToContext, type AiAttachment, type AiResult } from "@/lib/ai"
 import { fileToAttachment } from "@/lib/attachments"
-import type { Backend } from "@/lib/backend"
+import type { Backend, Okr } from "@/lib/backend"
 import { useRecorder } from "@/hooks/use-recorder"
 
 const ACCEPT = "image/*,.pdf,.docx,.doc,.xlsx,.txt,.md,.csv,.json"
@@ -15,9 +15,12 @@ type Props = {
   idea: string
   onIdeaChange: (idea: string) => void
   onAiResult: (result: AiResult) => number
+  okrs: Okr[]
+  okrId: string | null
+  onOkrChange: (id: string | null) => void
 }
 
-export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
+export function StepIntake({ backend, idea, onIdeaChange, onAiResult, okrs, okrId, onOkrChange }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [okMessage, setOkMessage] = useState("")
@@ -41,6 +44,12 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
 
   const rec = useRecorder(text => onIdeaChange((idea.trimEnd() + "\n" + text).trim()))
 
+  const selectedOkr = okrs.find(o => o.id === okrId) ?? null
+  // Aktive OKRs anbieten; eine bereits verknüpfte archivierte OKR bleibt wählbar
+  const okrOptions = okrs
+    .filter(o => o.status === "aktiv" || o.id === okrId)
+    .map(o => ({ value: o.id, label: `${o.quarter} · ${o.objective}${o.status === "archiviert" ? " (archiviert)" : ""}` }))
+
   const deviceItems = [
     { label: "Standard-Mikrofon", value: "" },
     ...rec.devices.map((d, i) => ({ label: d.label || `Mikrofon ${i + 1}`, value: d.deviceId })),
@@ -63,7 +72,7 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
       const token = await backend.getAccessToken()
       if (!token) throw new Error("Keine gültige Sitzung – bitte neu anmelden.")
       const model = await backend.getAiModel()
-      const result = await aiPrefill(token, model, idea.trim(), attachments)
+      const result = await aiPrefill(token, model, idea.trim(), attachments, selectedOkr ? okrToContext(selectedOkr) : undefined)
       const filled = onAiResult(result)
       setOkMessage(`${filled} Felder vorbefüllt (als „KI-Vorschlag“ markiert). Bitte in den nächsten Schritten prüfen und anpassen.`)
       if (Array.isArray(result.rueckfragen)) setRueckfragen(result.rueckfragen.map(String))
@@ -101,6 +110,19 @@ export function StepIntake({ backend, idea, onIdeaChange, onAiResult }: Props) {
           value={idea}
           onChange={e => onIdeaChange(e.currentTarget.value)}
         />
+
+        {okrOptions.length > 0 && (
+          <Select
+            label="Zahlt ein auf OKR (optional)"
+            description="Die KI richtet Ziel, Erfolgskriterien und Akzeptanzkriterien an der gewählten OKR aus."
+            placeholder="Keine OKR verknüpft"
+            data={okrOptions}
+            value={okrId}
+            clearable
+            searchable
+            onChange={onOkrChange}
+          />
+        )}
 
         <Paper withBorder p="md" radius="md" style={{ borderStyle: "dashed" }}>
           <Stack gap="sm">

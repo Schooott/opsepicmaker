@@ -33,7 +33,30 @@ export type Profile = {
   created_at?: string
 }
 
-export type EpicData = { values: Values; source: Sources; idea: string; stories?: StorySuggestion[] }
+export type EpicData = { values: Values; source: Sources; idea: string; stories?: StorySuggestion[]; okr_id?: string | null }
+
+export type OkrStatus = "aktiv" | "archiviert"
+
+export type Okr = {
+  id: string
+  objective: string
+  description: string
+  key_results: string[]
+  quarter: string
+  status: OkrStatus
+  created_by: string
+  creator_name: string
+  created_at: string
+  updated_at: string
+}
+
+export type OkrInput = {
+  objective: string
+  description: string
+  key_results: string[]
+  quarter: string
+  status: OkrStatus
+}
 
 export type EpicStatus = "entwurf" | "abgeschlossen"
 
@@ -49,6 +72,8 @@ export type EpicMeta = {
   comment_count: number
   /** Ausfüllstand der Pflichtfelder in Prozent (0–100) */
   progress: number
+  /** Referenzierte OKR (aus den Epic-Daten) */
+  okr_id?: string | null
 }
 
 export type EpicRecord = EpicMeta & {
@@ -60,7 +85,7 @@ export type EpicRecord = EpicMeta & {
 /** Nutzer, die ein Epic gerade geöffnet haben (Realtime Presence) */
 export type PresenceUser = { id: string; name: string; avatar?: string | null }
 
-export type WatchedTable = "epics" | "comments" | "profiles" | "ai_requests"
+export type WatchedTable = "epics" | "comments" | "profiles" | "ai_requests" | "okrs"
 
 export type AdminStats = {
   aiRequestsMonth: number
@@ -145,6 +170,10 @@ export interface Backend {
   changePassword(newPassword: string): Promise<void>
   /** Eigenen Avatar hochladen (bereits verkleinertes JPEG); liefert die neue URL */
   uploadAvatar(blob: Blob): Promise<string>
+  listOkrs(): Promise<Okr[]>
+  createOkr(input: OkrInput): Promise<string>
+  updateOkr(id: string, input: OkrInput): Promise<void>
+  deleteOkr(id: string): Promise<void>
   /** Ungelesene fremde Kommentare je Epic (für die Übersicht) */
   getUnreadCommentCounts(): Promise<Record<string, number>>
   /** Eigener Lese-Status je Bereich eines Epics: section → last_read_at (ISO) */
@@ -225,6 +254,7 @@ class SupabaseBackend implements Backend {
       creator_avatar: r.creator?.avatar_url ?? null,
       comment_count: r.comments?.[0]?.count ?? 0,
       progress: completionPercent(r.data?.values ?? {}),
+      okr_id: r.data?.okr_id ?? null,
     }))
   }
 
@@ -330,6 +360,45 @@ class SupabaseBackend implements Backend {
 
   async updateProfile(id: string, patch: Partial<Pick<Profile, "role" | "approved" | "display_name">>): Promise<void> {
     const { error } = await this.sb.from("profiles").update(patch).eq("id", id)
+    if (error) throw new Error(error.message)
+  }
+
+  async listOkrs(): Promise<Okr[]> {
+    const { data, error } = await this.sb
+      .from("okrs")
+      .select("id,objective,description,key_results,quarter,status,created_by,created_at,updated_at,creator:profiles!okrs_created_by_fkey(display_name)")
+      .order("quarter", { ascending: false })
+      .order("created_at", { ascending: true })
+    if (error) throw new Error(error.message)
+    type Row = Omit<Okr, "creator_name" | "key_results"> & { key_results: unknown; creator: { display_name: string } | null }
+    return (data as unknown as Row[]).map(r => ({
+      ...r,
+      key_results: Array.isArray(r.key_results) ? r.key_results.map(String) : [],
+      creator_name: r.creator?.display_name ?? "?",
+    }))
+  }
+
+  async createOkr(input: OkrInput): Promise<string> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const { data, error } = await this.sb
+      .from("okrs")
+      .insert({ ...input, created_by: this.me.id })
+      .select("id")
+      .single()
+    if (error) throw new Error(error.message)
+    return (data as { id: string }).id
+  }
+
+  async updateOkr(id: string, input: OkrInput): Promise<void> {
+    const { error } = await this.sb
+      .from("okrs")
+      .update({ ...input, updated_at: new Date().toISOString() })
+      .eq("id", id)
+    if (error) throw new Error(error.message)
+  }
+
+  async deleteOkr(id: string): Promise<void> {
+    const { error } = await this.sb.from("okrs").delete().eq("id", id)
     if (error) throw new Error(error.message)
   }
 
@@ -469,6 +538,7 @@ type DemoStore = {
   session: string | null
   settings?: Record<string, string>
   reads?: Array<{ user_id: string; epic_id: string; section: string; last_read_at: string }>
+  okrs?: Array<Omit<Okr, "creator_name">>
 }
 
 class DemoBackend implements Backend {
@@ -535,6 +605,7 @@ class DemoBackend implements Backend {
       creator_avatar: creator?.avatar_url ?? null,
       comment_count: store.comments.filter(c => c.epic_id === e.id).length,
       progress: completionPercent(e.data?.values ?? {}),
+      okr_id: e.data?.okr_id ?? null,
     }
   }
 
@@ -645,6 +716,38 @@ class DemoBackend implements Backend {
       throw new Error("Der letzte aktive Admin kann nicht entfernt werden.")
     }
     Object.assign(u, patch)
+    this.write(store)
+  }
+
+  async listOkrs(): Promise<Okr[]> {
+    const store = this.read()
+    return [...(store.okrs ?? [])]
+      .sort((a, b) => b.quarter.localeCompare(a.quarter) || a.created_at.localeCompare(b.created_at))
+      .map(o => ({ ...o, creator_name: store.users.find(u => u.id === o.created_by)?.display_name ?? "?" }))
+  }
+
+  async createOkr(input: OkrInput): Promise<string> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const store = this.read()
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+    store.okrs = store.okrs ?? []
+    store.okrs.push({ id, ...input, created_by: this.me.id, created_at: now, updated_at: now })
+    this.write(store)
+    return id
+  }
+
+  async updateOkr(id: string, input: OkrInput): Promise<void> {
+    const store = this.read()
+    const o = (store.okrs ?? []).find(x => x.id === id)
+    if (!o) throw new Error("OKR nicht gefunden.")
+    Object.assign(o, input, { updated_at: new Date().toISOString() })
+    this.write(store)
+  }
+
+  async deleteOkr(id: string): Promise<void> {
+    const store = this.read()
+    store.okrs = (store.okrs ?? []).filter(x => x.id !== id)
     this.write(store)
   }
 

@@ -65,6 +65,17 @@ export type AiAttachment =
 /** Vorgeschlagene Story/Aufgabe zum geschärften Epic */
 export type StorySuggestion = { typ: "Story" | "Task"; titel: string; beschreibung: string }
 
+/** OKR als Prompt-Kontext formatieren */
+export function okrToContext(okr: { objective: string; description: string; key_results: string[]; quarter: string }): string {
+  const kr = okr.key_results.length ? "\nKey Results:\n" + okr.key_results.map((k, i) => `${i + 1}. ${k}`).join("\n") : ""
+  return `Objective (${okr.quarter}): ${okr.objective}${okr.description ? "\n" + okr.description : ""}${kr}`
+}
+
+function okrPromptBlock(okrContext?: string): string {
+  if (!okrContext) return ""
+  return `Dieses Epic zahlt auf folgende Team-OKR ein. Richte Ziel, Erfolgskriterien, Akzeptanzkriterien und Priorisierung daran aus, wo es inhaltlich passt – ohne Inhalte zu erfinden, die der Eingabe widersprechen:\n"""\n${okrContext}\n"""\n\n`
+}
+
 type ContentBlock =
   | { type: "text"; text: string }
   | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
@@ -96,14 +107,14 @@ async function callAi(token: string, payload: unknown): Promise<string> {
   return textBlock.text as string
 }
 
-export async function aiPrefill(token: string, model: string, idea: string, attachments: AiAttachment[] = []): Promise<AiResult> {
+export async function aiPrefill(token: string, model: string, idea: string, attachments: AiAttachment[] = [], okrContext?: string): Promise<AiResult> {
   const today = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
   const textAttachments = attachments.filter(a => a.kind === "text")
   const attachmentTexts = textAttachments
     .map(a => `\n\nInhalt der angehängten Datei „${a.name}“:\n"""\n${a.text}\n"""`)
     .join("")
   const binaryCount = attachments.length - textAttachments.length
-  const prompt = `Heutiges Datum: ${today}\n\nFeldliste (JSON-Schlüssel, Typ, Bedeutung):\n${buildFieldSpec()}\n\nEingabe (Beschreibung/Notizen/Transkript${binaryCount ? " – zusätzlich " + binaryCount + " Datei(en) angehängt" : ""}):\n"""\n${idea}\n"""${attachmentTexts}\n\nAntworte jetzt nur mit dem JSON-Objekt.`
+  const prompt = `Heutiges Datum: ${today}\n\n${okrPromptBlock(okrContext)}Feldliste (JSON-Schlüssel, Typ, Bedeutung):\n${buildFieldSpec()}\n\nEingabe (Beschreibung/Notizen/Transkript${binaryCount ? " – zusätzlich " + binaryCount + " Datei(en) angehängt" : ""}):\n"""\n${idea}\n"""${attachmentTexts}\n\nAntworte jetzt nur mit dem JSON-Objekt.`
   const content: ContentBlock[] = [
     ...attachments.flatMap<ContentBlock>(a => {
       if (a.kind === "image") return [{ type: "image", source: { type: "base64", media_type: a.mediaType, data: a.data } }]
@@ -132,7 +143,7 @@ Regeln:
 - Nur Inhalte ableiten, die zum Epic passen; nichts erfinden, was dem Epic widerspricht.
 - Alle Inhalte auf Deutsch.`
 
-export async function aiStories(token: string, model: string, epicText: string): Promise<StorySuggestion[]> {
+export async function aiStories(token: string, model: string, epicText: string, okrContext?: string): Promise<StorySuggestion[]> {
   const text = await callAi(token, {
     model,
     max_tokens: 6000,
@@ -140,7 +151,7 @@ export async function aiStories(token: string, model: string, epicText: string):
     messages: [
       {
         role: "user",
-        content: `Das Epic:\n"""\n${epicText}\n"""\n\nAntworte jetzt nur mit dem JSON-Objekt.`,
+        content: `${okrPromptBlock(okrContext)}Das Epic:\n"""\n${epicText}\n"""\n\nAntworte jetzt nur mit dem JSON-Objekt.`,
       },
     ],
   })

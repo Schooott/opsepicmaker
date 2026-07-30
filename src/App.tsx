@@ -14,12 +14,13 @@ import { toast } from "@/lib/notify"
 import { AdminView } from "@/components/admin-view"
 import { EpicList } from "@/components/epic-list"
 import { LoginView } from "@/components/login-view"
+import { OkrsView } from "@/components/okrs-view"
 import { ProfileView } from "@/components/profile-view"
 import { UserAvatar } from "@/components/user-avatar"
 import { Wizard } from "@/components/wizard/wizard"
 import classes from "./components/header-tabs.module.css"
 
-type View = { name: "list" } | { name: "admin" } | { name: "profile" } | { name: "wizard"; epic: EpicRecord | null }
+type View = { name: "list" } | { name: "okrs" } | { name: "admin" } | { name: "profile" } | { name: "wizard"; epic: EpicRecord | null }
 
 export function App() {
   const backend = useMemo(() => createBackend(), [])
@@ -68,12 +69,14 @@ export function App() {
 
   const tabs = [
     { value: "list", label: "Epics" },
+    { value: "okrs", label: "OKRs" },
     ...(profile.role === "admin" ? [{ value: "admin", label: "Admin" }] : []),
   ]
-  const activeTab = view.name === "list" || view.name === "admin" ? view.name : null
+  const activeTab = view.name === "list" || view.name === "okrs" || view.name === "admin" ? view.name : null
 
   function goTo(tab: string | null) {
     if (tab === "list") setView({ name: "list" })
+    if (tab === "okrs") setView({ name: "okrs" })
     if (tab === "admin") setView({ name: "admin" })
     closeDrawer()
   }
@@ -178,6 +181,7 @@ export function App() {
             onNew={() => setView({ name: "wizard", epic: null })}
           />
         )}
+        {view.name === "okrs" && <OkrsView backend={backend} profile={profile} />}
         {view.name === "admin" && profile.role === "admin" && <AdminView backend={backend} profile={profile} />}
         {view.name === "profile" && <ProfileView backend={backend} profile={profile} onProfileChange={setProfile} />}
         {view.name === "wizard" && (

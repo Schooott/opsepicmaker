@@ -255,11 +255,46 @@ create policy "comment_reads_own" on public.comment_reads
   using (user_id = auth.uid())
   with check (user_id = auth.uid() and public.is_approved());
 
+-- ---------- okrs: Team-OKRs, optional von Epics referenziert ----------
+create table public.okrs (
+  id uuid primary key default gen_random_uuid(),
+  objective text not null,
+  description text not null default '',
+  key_results jsonb not null default '[]'::jsonb,
+  quarter text not null,
+  status text not null default 'aktiv' check (status in ('aktiv', 'archiviert')),
+  created_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.okrs enable row level security;
+
+-- Alle freigeschalteten Teammitglieder lesen und pflegen OKRs
+create policy "okrs_select" on public.okrs
+  for select to authenticated
+  using (public.is_approved());
+
+create policy "okrs_insert" on public.okrs
+  for insert to authenticated
+  with check (public.is_approved() and created_by = auth.uid());
+
+create policy "okrs_update" on public.okrs
+  for update to authenticated
+  using (public.is_approved())
+  with check (public.is_approved());
+
+-- Löschen nur durch Erstellende oder Admins
+create policy "okrs_delete" on public.okrs
+  for delete to authenticated
+  using (public.is_approved() and (created_by = auth.uid() or public.is_admin()));
+
 -- ---------- realtime: Live-Updates an alle Clients ----------
 alter publication supabase_realtime add table public.epics;
 alter publication supabase_realtime add table public.comments;
 alter publication supabase_realtime add table public.profiles;
 alter publication supabase_realtime add table public.ai_requests;
+alter publication supabase_realtime add table public.okrs;
 
 -- ---------- hardening (per Supabase security advisor) ----------
 alter function public.protect_last_admin() set search_path = public;
