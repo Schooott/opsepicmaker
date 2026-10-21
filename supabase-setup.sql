@@ -289,12 +289,42 @@ create policy "okrs_delete" on public.okrs
   for delete to authenticated
   using (public.is_approved() and (created_by = auth.uid() or public.is_admin()));
 
+-- ---------- todos: lose Themen-/Todo-Liste des Teams ----------
+create table public.todos (
+  id uuid primary key default gen_random_uuid(),
+  text text not null,
+  done boolean not null default false,
+  created_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.todos enable row level security;
+
+create policy "todos_select" on public.todos
+  for select to authenticated
+  using (public.is_approved());
+
+create policy "todos_insert" on public.todos
+  for insert to authenticated
+  with check (public.is_approved() and created_by = auth.uid());
+
+create policy "todos_update" on public.todos
+  for update to authenticated
+  using (public.is_approved())
+  with check (public.is_approved());
+
+-- Löschen nur durch Erstellende oder Admins (aktuell ohne UI, für später)
+create policy "todos_delete" on public.todos
+  for delete to authenticated
+  using (public.is_approved() and (created_by = auth.uid() or public.is_admin()));
+
 -- ---------- realtime: Live-Updates an alle Clients ----------
 alter publication supabase_realtime add table public.epics;
 alter publication supabase_realtime add table public.comments;
 alter publication supabase_realtime add table public.profiles;
 alter publication supabase_realtime add table public.ai_requests;
 alter publication supabase_realtime add table public.okrs;
+alter publication supabase_realtime add table public.todos;
 
 -- ---------- hardening (per Supabase security advisor) ----------
 alter function public.protect_last_admin() set search_path = public;

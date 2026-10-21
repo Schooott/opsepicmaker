@@ -85,7 +85,17 @@ export type EpicRecord = EpicMeta & {
 /** Nutzer, die ein Epic gerade geöffnet haben (Realtime Presence) */
 export type PresenceUser = { id: string; name: string; avatar?: string | null }
 
-export type WatchedTable = "epics" | "comments" | "profiles" | "ai_requests" | "okrs"
+export type WatchedTable = "epics" | "comments" | "profiles" | "ai_requests" | "okrs" | "todos"
+
+export type Todo = {
+  id: string
+  text: string
+  done: boolean
+  created_by: string
+  creator_name: string
+  creator_avatar?: string | null
+  created_at: string
+}
 
 export type AdminStats = {
   aiRequestsMonth: number
@@ -174,6 +184,9 @@ export interface Backend {
   createOkr(input: OkrInput): Promise<string>
   updateOkr(id: string, input: OkrInput): Promise<void>
   deleteOkr(id: string): Promise<void>
+  listTodos(): Promise<Todo[]>
+  addTodo(text: string): Promise<void>
+  updateTodo(id: string, patch: Partial<Pick<Todo, "text" | "done">>): Promise<void>
   /** Ungelesene fremde Kommentare je Epic (für die Übersicht) */
   getUnreadCommentCounts(): Promise<Record<string, number>>
   /** Eigener Lese-Status je Bereich eines Epics: section → last_read_at (ISO) */
@@ -402,6 +415,31 @@ class SupabaseBackend implements Backend {
     if (error) throw new Error(error.message)
   }
 
+  async listTodos(): Promise<Todo[]> {
+    const { data, error } = await this.sb
+      .from("todos")
+      .select("id,text,done,created_by,created_at,creator:profiles!todos_created_by_fkey(display_name,avatar_url)")
+      .order("created_at", { ascending: false })
+    if (error) throw new Error(error.message)
+    type Row = Omit<Todo, "creator_name" | "creator_avatar"> & { creator: { display_name: string; avatar_url: string | null } | null }
+    return (data as unknown as Row[]).map(r => ({
+      id: r.id, text: r.text, done: r.done, created_by: r.created_by, created_at: r.created_at,
+      creator_name: r.creator?.display_name ?? "?",
+      creator_avatar: r.creator?.avatar_url ?? null,
+    }))
+  }
+
+  async addTodo(text: string): Promise<void> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const { error } = await this.sb.from("todos").insert({ text, created_by: this.me.id })
+    if (error) throw new Error(error.message)
+  }
+
+  async updateTodo(id: string, patch: Partial<Pick<Todo, "text" | "done">>): Promise<void> {
+    const { error } = await this.sb.from("todos").update(patch).eq("id", id)
+    if (error) throw new Error(error.message)
+  }
+
   async getUnreadCommentCounts(): Promise<Record<string, number>> {
     if (!this.me) return {}
     const [commentsRes, readsRes] = await Promise.all([
@@ -539,6 +577,7 @@ type DemoStore = {
   settings?: Record<string, string>
   reads?: Array<{ user_id: string; epic_id: string; section: string; last_read_at: string }>
   okrs?: Array<Omit<Okr, "creator_name">>
+  todos?: Array<Omit<Todo, "creator_name" | "creator_avatar">>
 }
 
 class DemoBackend implements Backend {
@@ -748,6 +787,32 @@ class DemoBackend implements Backend {
   async deleteOkr(id: string): Promise<void> {
     const store = this.read()
     store.okrs = (store.okrs ?? []).filter(x => x.id !== id)
+    this.write(store)
+  }
+
+  async listTodos(): Promise<Todo[]> {
+    const store = this.read()
+    return [...(store.todos ?? [])]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map(t => {
+        const creator = store.users.find(u => u.id === t.created_by)
+        return { ...t, creator_name: creator?.display_name ?? "?", creator_avatar: creator?.avatar_url ?? null }
+      })
+  }
+
+  async addTodo(text: string): Promise<void> {
+    if (!this.me) throw new Error("Nicht angemeldet.")
+    const store = this.read()
+    store.todos = store.todos ?? []
+    store.todos.push({ id: crypto.randomUUID(), text, done: false, created_by: this.me.id, created_at: new Date().toISOString() })
+    this.write(store)
+  }
+
+  async updateTodo(id: string, patch: Partial<Pick<Todo, "text" | "done">>): Promise<void> {
+    const store = this.read()
+    const t = (store.todos ?? []).find(x => x.id === id)
+    if (!t) throw new Error("Eintrag nicht gefunden.")
+    Object.assign(t, patch)
     this.write(store)
   }
 
