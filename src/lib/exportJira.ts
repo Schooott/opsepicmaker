@@ -28,9 +28,9 @@ export function buildWikiDescription(values: Values, withLeitfragen: boolean): s
   /* 🔵 Auftrag verstehen */
   push("h2. 🔵 Auftrag verstehen\n")
   panelStart("📌 Initiative & Ausgangslage", "#4167c1")
-  resp("Initial durch UX Ops")
+  resp("Initial durch UX CORE")
   push("*Initiative*")
-  hint("Leitfrage: Wie heißt die UX-Ops-Initiative und welchem Bereich ist sie zuzuordnen, z. B. Research Ops, Design Ops, Governance, Tooling oder Enablement?")
+  hint("Leitfrage: Wie heißt die UX-CORE-Initiative und welchem Bereich ist sie zuzuordnen, z. B. Research Ops, Design Ops, Governance, Tooling oder Enablement?")
   push(`* ${v("initiativeName") || P}${v("initiativeBereich") ? " – Bereich: " + v("initiativeBereich") : ""}\n`)
   push("*Ausgangslage und Problem*")
   hint("Leitfrage: Welches konkrete Problem bzw. welche Ineffizienz besteht heute, woran zeigt sich dies und warum sollte das Thema jetzt bearbeitet werden?")
@@ -38,7 +38,7 @@ export function buildWikiDescription(values: Values, withLeitfragen: boolean): s
   panelEnd()
 
   panelStart("👤 Zielgruppen & Arbeitskontext", "#4167c1")
-  resp("Initial durch UX Ops · Bei Bedarf gemeinsam mit dem Squad konkretisieren")
+  resp("Initial durch UX CORE · Bei Bedarf gemeinsam mit dem Squad konkretisieren")
   push("*Primäre Zielgruppe*")
   hint("Leitfrage: Wer soll die neue Lösung, den Prozess oder den Service später hauptsächlich nutzen?")
   push(bullets("zielgruppePrimaer") + "\n")
@@ -51,7 +51,7 @@ export function buildWikiDescription(values: Values, withLeitfragen: boolean): s
   panelEnd()
 
   panelStart("🏁 Zielbild & OKR-Beitrag", "#4167c1")
-  resp("Initial durch UX Ops")
+  resp("Initial durch UX CORE")
   push("*Ziel und gewünschte Veränderung*")
   hint("Leitfrage: Was soll nach Abschluss konkret besser oder anders sein? Welche neue Fähigkeit, Arbeitsweise oder Qualität soll etabliert sein?")
   push(bullets("ziel") + "\n")
@@ -64,7 +64,7 @@ export function buildWikiDescription(values: Values, withLeitfragen: boolean): s
   push("*Out of Scope*")
   hint("Leitfrage: Welche angrenzenden Themen oder Bestandteile werden im Rahmen dieser Initiative ausdrücklich nicht bearbeitet?")
   push(bullets("outOfScope") + "\n")
-  push("*Beitrag zum UX-Ops-OKR*")
+  push("*Beitrag zum UX-CORE-OKR*")
   hint("Leitfrage: Welches Objective und Key Result unterstützt die Initiative und welchen konkreten Beitrag soll sie dazu leisten?")
   push(labeled("Objective", "okrObjective"))
   push(labeled("Key Result", "okrKeyResult"))
@@ -72,7 +72,7 @@ export function buildWikiDescription(values: Values, withLeitfragen: boolean): s
   panelEnd()
 
   panelStart("📐 Erfolgsmessung", "#4167c1")
-  resp("Erwartete Wirkung initial durch UX Ops · Messbarkeit gemeinsam konkretisieren")
+  resp("Erwartete Wirkung initial durch UX CORE · Messbarkeit gemeinsam konkretisieren")
   push("*Ausgangssituation / Ausgangswerte*")
   hint("Leitfrage: Wie stellt sich die Situation heute dar? Welche Basisdaten liegen bereits vor und welche müssen im Rahmen der Initiative noch erhoben werden?")
   push(bullets("ausgangswerte") + "\n")
@@ -136,7 +136,7 @@ export function buildWikiDescription(values: Values, withLeitfragen: boolean): s
   panelEnd()
 
   panelStart("⏱️ Zeitlicher Rahmen & Meilensteine", "#8a6ec6")
-  resp("Feste Rahmenbedingungen durch UX Ops · Realistische Planung gemeinsam mit dem Squad")
+  resp("Feste Rahmenbedingungen durch UX CORE · Realistische Planung gemeinsam mit dem Squad")
   push("*Start und Ende*")
   hint("Leitfrage: Wann soll die Initiative starten und bis wann soll der vereinbarte Umfang abgeschlossen sein? Welche Termine sind verbindlich und welche stellen eine aktuelle Planung dar?")
   push(labeled("Geplanter Start", "startDatum"))
@@ -158,7 +158,7 @@ export function buildWikiDescription(values: Values, withLeitfragen: boolean): s
   /* 🟢 Verantwortung klären */
   push("h2. 🟢 Verantwortung klären\n")
   panelStart("💬 Team, Rollen & Governance", "#5ee198")
-  resp("Initial durch UX Ops · Umsetzungsteam und operative Rollen gemeinsam konkretisieren")
+  resp("Initial durch UX CORE · Umsetzungsteam und operative Rollen gemeinsam konkretisieren")
   push("*Epic Owner*")
   hint("Leitfrage: Wer trägt die Verantwortung für Zielerreichung, Priorisierung, Fortschritt und Abstimmung der Initiative?")
   push(bullets("epicOwner") + "\n")
@@ -185,7 +185,7 @@ export function buildWikiDescription(values: Values, withLeitfragen: boolean): s
   /* ⚪ Vorhandene Grundlagen nutzen */
   push("h2. ⚪ Vorhandene Grundlagen nutzen\n")
   panelStart("📥 Input & Vorarbeiten", "#ececec")
-  resp("Initial durch UX Ops · Laufend durch den Squad ergänzen")
+  resp("Initial durch UX CORE · Laufend durch den Squad ergänzen")
   push("*Vorhandene Erkenntnisse*")
   hint("Leitfrage: Welche Daten, Interviews, Retrospektiven, Feedbacks oder Reifegradanalysen liegen bereits vor? An welche Standards, Prozesse, Tools, Dokumentationen oder Erfahrungen kann angeknüpft werden?")
   push(listBullets("vorarbeiten") + "\n")
@@ -195,7 +195,7 @@ export function buildWikiDescription(values: Values, withLeitfragen: boolean): s
   /* 🟡 Unsicherheiten bearbeiten */
   push("h2. 🟡 Unsicherheiten bearbeiten\n")
   panelStart("🚨 Risiken & Gegenmaßnahmen", "#fff0b3")
-  resp("Bekannte Risiken initial durch UX Ops · Laufende Ergänzung durch alle Beteiligten")
+  resp("Bekannte Risiken initial durch UX CORE · Laufende Ergänzung durch alle Beteiligten")
   push("*Risiken*")
   hint("Leitfrage: Was könnte die Zielerreichung, Umsetzung oder nachhaltige Nutzung gefährden? Zu betrachten sind z. B. Akzeptanz, Mandat, Ressourcen, Kompetenzen, Toolabhängigkeiten und ungeklärte Ownership.")
   push(listBullets("risiken") + "\n")

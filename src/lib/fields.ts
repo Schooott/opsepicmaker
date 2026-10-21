@@ -48,17 +48,17 @@ export type PanelDef = {
 
 export const PANELS: PanelDef[] = [
   { id: "basis", step: 1, color: "#4167c1", icon: "ticket", title: "Epic-Basisdaten", resp: "" },
-  { id: "init", step: 1, color: "#4167c1", icon: "map-pin", title: "Initiative & Ausgangslage", resp: "Initial durch UX Ops" },
-  { id: "ziel", step: 1, color: "#4167c1", icon: "users", title: "Zielgruppen & Arbeitskontext", resp: "Initial durch UX Ops · Bei Bedarf gemeinsam mit dem Squad konkretisieren" },
-  { id: "okr", step: 1, color: "#4167c1", icon: "flag", title: "Zielbild & OKR-Beitrag", resp: "Initial durch UX Ops" },
-  { id: "erfolg", step: 1, color: "#4167c1", icon: "ruler", title: "Erfolgsmessung", resp: "Erwartete Wirkung initial durch UX Ops · Messbarkeit gemeinsam konkretisieren" },
+  { id: "init", step: 1, color: "#4167c1", icon: "map-pin", title: "Initiative & Ausgangslage", resp: "Initial durch UX CORE" },
+  { id: "ziel", step: 1, color: "#4167c1", icon: "users", title: "Zielgruppen & Arbeitskontext", resp: "Initial durch UX CORE · Bei Bedarf gemeinsam mit dem Squad konkretisieren" },
+  { id: "okr", step: 1, color: "#4167c1", icon: "flag", title: "Zielbild & OKR-Beitrag", resp: "Initial durch UX CORE" },
+  { id: "erfolg", step: 1, color: "#4167c1", icon: "ruler", title: "Erfolgsmessung", resp: "Erwartete Wirkung initial durch UX CORE · Messbarkeit gemeinsam konkretisieren" },
   { id: "deliv", step: 2, color: "#8a6ec6", icon: "package", title: "Ergebnisse & Deliverables", resp: "Initial gemeinsam konkretisieren · Ausarbeitung durch den Squad" },
   { id: "ak", step: 2, color: "#8a6ec6", icon: "list-checks", title: "Outcome-Akzeptanzkriterien", resp: "Jira-Feld „Akzeptanzkriterien“ (Checkliste)" },
   { id: "pilot", step: 2, color: "#8a6ec6", icon: "flask-conical", title: "Überprüfung, Pilotierung & Einführung", resp: "Initial durch den Squad · Abstimmung mit Epic Owner und relevanten Stakeholdern" },
-  { id: "zeit", step: 2, color: "#8a6ec6", icon: "clock", title: "Zeitlicher Rahmen & Meilensteine", resp: "Feste Rahmenbedingungen durch UX Ops · Realistische Planung gemeinsam mit dem Squad" },
-  { id: "team", step: 3, color: "#36b37e", icon: "messages-square", title: "Team, Rollen & Governance", resp: "Initial durch UX Ops · Umsetzungsteam und operative Rollen gemeinsam konkretisieren" },
-  { id: "input", step: 4, color: "#b3bac5", icon: "inbox", title: "Input & Vorarbeiten", resp: "Initial durch UX Ops · Laufend durch den Squad ergänzen" },
-  { id: "risiko", step: 4, color: "#e6b800", icon: "siren", title: "Risiken & Gegenmaßnahmen", resp: "Bekannte Risiken initial durch UX Ops · Laufende Ergänzung durch alle Beteiligten" },
+  { id: "zeit", step: 2, color: "#8a6ec6", icon: "clock", title: "Zeitlicher Rahmen & Meilensteine", resp: "Feste Rahmenbedingungen durch UX CORE · Realistische Planung gemeinsam mit dem Squad" },
+  { id: "team", step: 3, color: "#36b37e", icon: "messages-square", title: "Team, Rollen & Governance", resp: "Initial durch UX CORE · Umsetzungsteam und operative Rollen gemeinsam konkretisieren" },
+  { id: "input", step: 4, color: "#b3bac5", icon: "inbox", title: "Input & Vorarbeiten", resp: "Initial durch UX CORE · Laufend durch den Squad ergänzen" },
+  { id: "risiko", step: 4, color: "#e6b800", icon: "siren", title: "Risiken & Gegenmaßnahmen", resp: "Bekannte Risiken initial durch UX CORE · Laufende Ergänzung durch alle Beteiligten" },
   { id: "offen", step: 4, color: "#e6b800", icon: "circle-help", title: "Offene Punkte, Annahmen & Abhängigkeiten", resp: "Gemeinsame und kontinuierliche Pflege durch Epic Owner und Squad" },
 ]
 
@@ -67,7 +67,7 @@ export const FIELDS: FieldDef[] = [
   { key: "titel", panel: "basis", type: "text", req: true, label: "Titel (Zusammenfassung)", hint: "Aussagekräftiger Epic-Titel für Jira.", ai: "Prägnanter Epic-Titel (max. 90 Zeichen)." },
   { key: "epicName", panel: "basis", type: "text", req: true, label: "Epic Name (Kurzname)", hint: "Kurzer Name für Board-Labels, 2–4 Worte.", ai: "Sehr kurzer Epic-Name (2–4 Worte)." },
   // --- Initiative & Ausgangslage
-  { key: "initiativeName", panel: "init", type: "text", req: true, label: "Initiative", hint: "Leitfrage: Wie heißt die UX-Ops-Initiative?", ai: "Name der Initiative." },
+  { key: "initiativeName", panel: "init", type: "text", req: true, label: "Initiative", hint: "Leitfrage: Wie heißt die UX-CORE-Initiative?", ai: "Name der Initiative." },
   { key: "initiativeBereich", panel: "init", type: "select", variant: "chips", options: BEREICHE, req: true, label: "Bereich", hint: "Zuordnung: Research Ops, Design Ops, Governance, Tooling oder Enablement.", ai: "Einer der Werte: " + BEREICHE.join(", ") + "." },
   { key: "ausgangslage", panel: "init", type: "textarea", req: true, label: "Ausgangslage und Problem", hint: "Leitfrage: Welches konkrete Problem bzw. welche Ineffizienz besteht heute, woran zeigt sich dies und warum sollte das Thema jetzt bearbeitet werden?", ai: "Problem, woran es sich zeigt, warum jetzt. Stichpunkte, eine Aussage pro Zeile." },
   // --- Zielgruppen
