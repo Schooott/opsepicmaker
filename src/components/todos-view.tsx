@@ -4,16 +4,19 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import {
   ActionIcon, Card, Checkbox, Group, Skeleton, Stack, Text, TextInput, ThemeIcon, Title, Tooltip,
 } from "@mantine/core"
-import { CheckIcon, ListTodoIcon, PencilIcon, PlusIcon, XIcon } from "lucide-react"
+import { modals } from "@mantine/modals"
+import { CheckIcon, ListTodoIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react"
 
-import type { Backend, Todo } from "@/lib/backend"
+import type { Backend, Profile, Todo } from "@/lib/backend"
 import { toast } from "@/lib/notify"
 import { UserAvatar } from "@/components/user-avatar"
 
-function TodoRow({ todo, onToggle, onRename }: {
+function TodoRow({ todo, canDelete, onToggle, onRename, onDelete }: {
   todo: Todo
+  canDelete: boolean
   onToggle: (todo: Todo) => void
   onRename: (todo: Todo, text: string) => Promise<void>
+  onDelete: (todo: Todo) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(todo.text)
@@ -98,6 +101,11 @@ function TodoRow({ todo, onToggle, onRename }: {
           >
             <PencilIcon size={14} />
           </ActionIcon>
+          {canDelete && (
+            <ActionIcon variant="subtle" color="red" aria-label="Thema löschen" onClick={() => onDelete(todo)}>
+              <Trash2Icon size={14} />
+            </ActionIcon>
+          )}
           <Tooltip label={`Erstellt von ${todo.creator_name}`}>
             <UserAvatar name={todo.creator_name} src={todo.creator_avatar} size={22} />
           </Tooltip>
@@ -109,9 +117,10 @@ function TodoRow({ todo, onToggle, onRename }: {
 
 type Props = {
   backend: Backend
+  profile: Profile
 }
 
-export function TodosView({ backend }: Props) {
+export function TodosView({ backend, profile }: Props) {
   const [todos, setTodos] = useState<Todo[] | null>(null)
   const [draft, setDraft] = useState("")
   const [adding, setAdding] = useState(false)
@@ -170,6 +179,23 @@ export function TodosView({ backend }: Props) {
     }
   }
 
+  function confirmDelete(todo: Todo) {
+    modals.openConfirmModal({
+      title: "Thema löschen?",
+      children: <Text size="sm">„{todo.text}“ wird dauerhaft von der Liste entfernt.</Text>,
+      labels: { confirm: "Löschen", cancel: "Abbrechen" },
+      confirmProps: { color: "red" },
+      onConfirm: async () => {
+        try {
+          await backend.deleteTodo(todo.id)
+          setTodos(list => (list ?? []).filter(t => t.id !== todo.id))
+        } catch (e) {
+          toast.error("Löschen fehlgeschlagen: " + (e instanceof Error ? e.message : String(e)))
+        }
+      },
+    })
+  }
+
   const open = (todos ?? []).filter(t => !t.done)
   const done = (todos ?? []).filter(t => t.done)
 
@@ -217,7 +243,7 @@ export function TodosView({ backend }: Props) {
           ) : (
             <Stack gap={0}>
               {open.map(t => (
-                <TodoRow key={t.id} todo={t} onToggle={toggle} onRename={rename} />
+                <TodoRow key={t.id} todo={t} canDelete={t.created_by === profile.id || profile.role === "admin"} onToggle={toggle} onRename={rename} onDelete={confirmDelete} />
               ))}
               {done.length > 0 && (
                 <>
@@ -227,7 +253,7 @@ export function TodosView({ backend }: Props) {
                     </Text>
                   )}
                   {done.map(t => (
-                    <TodoRow key={t.id} todo={t} onToggle={toggle} onRename={rename} />
+                    <TodoRow key={t.id} todo={t} canDelete={t.created_by === profile.id || profile.role === "admin"} onToggle={toggle} onRename={rename} onDelete={confirmDelete} />
                   ))}
                 </>
               )}

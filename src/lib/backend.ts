@@ -187,6 +187,7 @@ export interface Backend {
   listTodos(): Promise<Todo[]>
   addTodo(text: string): Promise<void>
   updateTodo(id: string, patch: Partial<Pick<Todo, "text" | "done">>): Promise<void>
+  deleteTodo(id: string): Promise<void>
   /** Ungelesene fremde Kommentare je Epic (für die Übersicht) */
   getUnreadCommentCounts(): Promise<Record<string, number>>
   /** Eigener Lese-Status je Bereich eines Epics: section → last_read_at (ISO) */
@@ -437,6 +438,11 @@ class SupabaseBackend implements Backend {
 
   async updateTodo(id: string, patch: Partial<Pick<Todo, "text" | "done">>): Promise<void> {
     const { error } = await this.sb.from("todos").update(patch).eq("id", id)
+    if (error) throw new Error(error.message)
+  }
+
+  async deleteTodo(id: string): Promise<void> {
+    const { error } = await this.sb.from("todos").delete().eq("id", id)
     if (error) throw new Error(error.message)
   }
 
@@ -813,6 +819,12 @@ class DemoBackend implements Backend {
     const t = (store.todos ?? []).find(x => x.id === id)
     if (!t) throw new Error("Eintrag nicht gefunden.")
     Object.assign(t, patch)
+    this.write(store)
+  }
+
+  async deleteTodo(id: string): Promise<void> {
+    const store = this.read()
+    store.todos = (store.todos ?? []).filter(x => x.id !== id)
     this.write(store)
   }
 

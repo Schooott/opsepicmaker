@@ -185,7 +185,7 @@ export function App() {
           />
         )}
         {view.name === "okrs" && <OkrsView backend={backend} profile={profile} />}
-        {view.name === "todos" && <TodosView backend={backend} />}
+        {view.name === "todos" && <TodosView backend={backend} profile={profile} />}
         {view.name === "admin" && profile.role === "admin" && <AdminView backend={backend} profile={profile} />}
         {view.name === "profile" && <ProfileView backend={backend} profile={profile} onProfileChange={setProfile} />}
         {view.name === "wizard" && (
